@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-function respond(array $payload, int $statusCode = 200): never
+function respond(array $payload, int $statusCode = 200)
 {
     http_response_code($statusCode);
     header('Content-Type: application/json; charset=utf-8');
