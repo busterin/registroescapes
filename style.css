@@ -297,7 +297,7 @@ td {
 }
 
 .accordion-vampiro summary {
-  background: #ffd7d7;
+  background: #e6a3a3;
 }
 
 .accordion div {
@@ -384,7 +384,7 @@ legend {
 }
 
 .room-vampiro {
-  background: #ffd7d7;
+  background: #e6a3a3;
 }
 
 @keyframes reveal {
