@@ -217,7 +217,10 @@ function bindEvents() {
   els.registrosBody.addEventListener("click", handleRegistroAction);
 
   [els.filtroRegistroMes, els.filtroRegistroAnio].forEach((el) => {
-    el.addEventListener("change", renderRegistroList);
+    el.addEventListener("change", () => {
+      syncRegistroYearFilterState();
+      renderRegistroList();
+    });
   });
 
   [els.sesionesModo, els.sesionesMes, els.sesionesAnio].forEach((el) => {
@@ -556,6 +559,12 @@ function setDefaultFilters() {
   allOption.value = "all";
   allOption.textContent = "Todos los registros";
   els.filtroRegistroMes.prepend(allOption);
+  syncRegistroYearFilterState();
+}
+
+function syncRegistroYearFilterState() {
+  const isAll = els.filtroRegistroMes.value === "all";
+  els.filtroRegistroAnio.disabled = isAll;
 }
 
 function toggleMonthIfYear(modeSelect, monthSelect) {
