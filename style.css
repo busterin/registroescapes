@@ -249,6 +249,18 @@ td {
   background: #fdf1ed;
 }
 
+.accordion-frankie summary {
+  background: #d8f2df;
+}
+
+.accordion-magia summary {
+  background: #e9dcff;
+}
+
+.accordion-filosofal summary {
+  background: #ffdced;
+}
+
 .accordion div {
   padding: 0.7rem;
 }
