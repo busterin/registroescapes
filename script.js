@@ -2,6 +2,15 @@ const AUTH_REMEMBER_KEY = "registroescapes.auth.remember.v1";
 const API_ENDPOINT = "api/records.php";
 const API_LOGIN_ENDPOINT = "api/login.php";
 const API_SESSION_ENDPOINT = "api/session.php";
+const CATEGORY_PRICES = Object.freeze({
+  "2a5p": 85,
+  "6p": 100,
+  "7p": 120,
+  "2a6(filo)": 75,
+  "7a12(filo)": 120,
+  guiado: 120,
+  merienda: 170,
+});
 
 const MONTHS = [
   "Enero",
@@ -50,6 +59,7 @@ const els = {
   filtroRegistroAnio: document.getElementById("filtro-registro-anio"),
   registrosBody: document.getElementById("registros-body"),
   registrosEmpty: document.getElementById("registros-empty"),
+  registrosTotal: document.getElementById("registros-total"),
 
   sesionesModo: document.getElementById("sesiones-modo"),
   sesionesMes: document.getElementById("sesiones-mes"),
@@ -67,7 +77,8 @@ const els = {
   compBMes: document.getElementById("comp-b-mes"),
   compBAnio: document.getElementById("comp-b-anio"),
   compSala: document.getElementById("comp-sala"),
-  pieChart: document.getElementById("pie-chart"),
+  pieChartSessions: document.getElementById("pie-chart-sessions"),
+  pieChartBilling: document.getElementById("pie-chart-billing"),
   compareMeta: document.getElementById("compare-meta"),
 };
 
@@ -447,6 +458,7 @@ function renderRegistroList() {
         <td><span class="room-tag ${roomClassName(r.room)}">${r.room}</span></td>
         <td>${r.category}</td>
         <td>${r.sessions}</td>
+        <td>${formatCurrency(recordBilling(r))}</td>
         <td>
           <div class="row-actions">
             <button type="button" class="btn-row" data-action="edit" data-id="${r.id}">Editar</button>
@@ -458,6 +470,8 @@ function renderRegistroList() {
     .join("");
 
   els.registrosEmpty.classList.toggle("hidden", rows.length > 0);
+  const totalBilling = rows.reduce((acc, r) => acc + recordBilling(r), 0);
+  els.registrosTotal.textContent = `Facturación total del periodo filtrado: ${formatCurrency(totalBilling)}`;
 }
 
 function roomClassName(room) {
@@ -475,10 +489,11 @@ function renderSesiones() {
   const filtered = filterByPeriod(state.records, mode, month, year);
 
   const totalGlobal = filtered.reduce((acc, r) => acc + Number(r.sessions), 0);
+  const totalBilling = filtered.reduce((acc, r) => acc + recordBilling(r), 0);
   const periodText =
     mode === "anio" ? `Año ${year}` : `${MONTHS[month - 1]} ${year}`;
 
-  els.totalGlobal.textContent = `Total global (${periodText}): ${totalGlobal} sesiones`;
+  els.totalGlobal.innerHTML = `Total global (${periodText}): ${totalGlobal} sesiones<br>Facturación global: ${formatCurrency(totalBilling)}`;
 
   renderRoomBreakdown(els.sesionesFrankie, filtered, "Frankie");
   renderRoomBreakdown(els.sesionesMagia, filtered, "Magia");
@@ -496,18 +511,23 @@ function renderRoomBreakdown(container, records, room) {
 
   const byCategory = new Map();
   roomRows.forEach((r) => {
-    const prev = byCategory.get(r.category) || 0;
-    byCategory.set(r.category, prev + Number(r.sessions));
+    const prev = byCategory.get(r.category) || { sessions: 0, billing: 0 };
+    byCategory.set(r.category, {
+      sessions: prev.sessions + Number(r.sessions),
+      billing: prev.billing + recordBilling(r),
+    });
   });
 
   const totalRoom = roomRows.reduce((acc, r) => acc + Number(r.sessions), 0);
+  const totalRoomBilling = roomRows.reduce((acc, r) => acc + recordBilling(r), 0);
   const categoryRows = [...byCategory.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(
-      ([category, total]) => `
+      ([category, totals]) => `
         <tr>
           <td>${category}</td>
-          <td>${total}</td>
+          <td>${totals.sessions}</td>
+          <td>${formatCurrency(totals.billing)}</td>
         </tr>`
     )
     .join("");
@@ -519,26 +539,27 @@ function renderRoomBreakdown(container, records, room) {
           <tr>
             <th>Categoría</th>
             <th>Sesiones</th>
+            <th>Facturación</th>
           </tr>
         </thead>
         <tbody>${categoryRows}</tbody>
       </table>
     </div>
-    <p><strong>Total ${room}: ${totalRoom}</strong></p>
+    <p><strong>Total ${room}: ${totalRoom} sesiones | ${formatCurrency(totalRoomBilling)}</strong></p>
   `;
 }
 
 function renderComparativa() {
   const scopeRoom = els.compSala.value;
 
-  const totalA = getCompareTotal(
+  const totalsA = getCompareTotals(
     els.compAModo.value,
     Number(els.compAMes.value),
     Number(els.compAAnio.value),
     scopeRoom
   );
 
-  const totalB = getCompareTotal(
+  const totalsB = getCompareTotals(
     els.compBModo.value,
     Number(els.compBMes.value),
     Number(els.compBAnio.value),
@@ -556,24 +577,40 @@ function renderComparativa() {
     Number(els.compBAnio.value)
   );
 
-  drawPieChart(totalA, totalB);
-  renderCompareMeta(labelA, labelB, totalA, totalB, scopeRoom);
+  const totalSessions = totalsA.sessions + totalsB.sessions;
+  const totalBilling = totalsA.billing + totalsB.billing;
+
+  drawPieChart(
+    els.pieChartSessions,
+    totalsA.sessions,
+    totalsB.sessions,
+    `${totalSessions} ses.`
+  );
+  drawPieChart(
+    els.pieChartBilling,
+    totalsA.billing,
+    totalsB.billing,
+    formatCurrency(totalBilling)
+  );
+  renderCompareMeta(labelA, labelB, totalsA, totalsB, scopeRoom);
 }
 
-function getCompareTotal(mode, month, year, roomScope) {
+function getCompareTotals(mode, month, year, roomScope) {
   let rows = filterByPeriod(state.records, mode, month, year);
   if (roomScope !== "Todas") {
     rows = rows.filter((r) => r.room === roomScope);
   }
-  return rows.reduce((acc, r) => acc + Number(r.sessions), 0);
+  return {
+    sessions: rows.reduce((acc, r) => acc + Number(r.sessions), 0),
+    billing: rows.reduce((acc, r) => acc + recordBilling(r), 0),
+  };
 }
 
 function periodLabel(mode, month, year) {
   return mode === "anio" ? `Año ${year}` : `${MONTHS[month - 1]} ${year}`;
 }
 
-function drawPieChart(a, b) {
-  const canvas = els.pieChart;
+function drawPieChart(canvas, a, b, centerText) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
@@ -619,7 +656,7 @@ function drawPieChart(a, b) {
   ctx.fillStyle = "#22201c";
   ctx.font = "700 18px Avenir Next";
   ctx.textAlign = "center";
-  ctx.fillText(`${total} ses.`, x, y + 6);
+  ctx.fillText(centerText, x, y + 6);
 
   drawPieLabel(ctx, x, y, radius, start + angleA / 2, `${pctA.toFixed(1)}%`, "#b84e2f");
   drawPieLabel(
@@ -658,19 +695,54 @@ function drawPieLabel(ctx, centerX, centerY, radius, angle, text, color) {
   ctx.fillText(text, lx, ly + 4);
 }
 
-function renderCompareMeta(labelA, labelB, totalA, totalB, roomScope) {
-  const diff = totalB - totalA;
-  const trend = diff === 0 ? "Sin variación" : diff > 0 ? `+${diff}` : `${diff}`;
-  const total = totalA + totalB;
-  const pctA = total > 0 ? ((totalA / total) * 100).toFixed(1) : "0.0";
-  const pctB = total > 0 ? ((totalB / total) * 100).toFixed(1) : "0.0";
+function renderCompareMeta(labelA, labelB, totalsA, totalsB, roomScope) {
+  const diffSessions = totalsB.sessions - totalsA.sessions;
+  const trendSessions =
+    diffSessions === 0 ? "Sin variación" : diffSessions > 0 ? `+${diffSessions}` : `${diffSessions}`;
+  const totalSessions = totalsA.sessions + totalsB.sessions;
+  const pctSessionsA = totalSessions > 0 ? ((totalsA.sessions / totalSessions) * 100).toFixed(1) : "0.0";
+  const pctSessionsB = totalSessions > 0 ? ((totalsB.sessions / totalSessions) * 100).toFixed(1) : "0.0";
+
+  const diffBilling = totalsB.billing - totalsA.billing;
+  const trendBilling =
+    diffBilling === 0
+      ? "Sin variación"
+      : diffBilling > 0
+        ? `+${formatCurrency(diffBilling)}`
+        : `${formatCurrency(diffBilling)}`;
+  const totalBilling = totalsA.billing + totalsB.billing;
+  const pctBillingA = totalBilling > 0 ? ((totalsA.billing / totalBilling) * 100).toFixed(1) : "0.0";
+  const pctBillingB = totalBilling > 0 ? ((totalsB.billing / totalBilling) * 100).toFixed(1) : "0.0";
 
   els.compareMeta.innerHTML = `
-    <div class="meta-item"><span class="dot" style="background:#b84e2f"></span><strong>${labelA}</strong>: ${totalA} sesiones (${pctA}%)</div>
-    <div class="meta-item"><span class="dot" style="background:#3f6f5b"></span><strong>${labelB}</strong>: ${totalB} sesiones (${pctB}%)</div>
+    <div class="meta-item"><span class="dot" style="background:#b84e2f"></span><strong>${labelA}</strong> - Sesiones: ${totalsA.sessions} (${pctSessionsA}%) | Facturación: ${formatCurrency(totalsA.billing)} (${pctBillingA}%)</div>
+    <div class="meta-item"><span class="dot" style="background:#3f6f5b"></span><strong>${labelB}</strong> - Sesiones: ${totalsB.sessions} (${pctSessionsB}%) | Facturación: ${formatCurrency(totalsB.billing)} (${pctBillingB}%)</div>
     <div class="meta-item"><strong>Sala:</strong> ${roomScope}</div>
-    <div class="meta-item"><strong>Diferencia (B - A):</strong> ${trend}</div>
+    <div class="meta-item"><strong>Diferencia sesiones (B - A):</strong> ${trendSessions}</div>
+    <div class="meta-item"><strong>Diferencia facturación (B - A):</strong> ${trendBilling}</div>
   `;
+}
+
+function normalizeCategory(category) {
+  return String(category || "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function categoryPrice(category) {
+  return CATEGORY_PRICES[normalizeCategory(category)] || 0;
+}
+
+function recordBilling(record) {
+  return Number(record.sessions) * categoryPrice(record.category);
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 function formatDate(isoDate) {

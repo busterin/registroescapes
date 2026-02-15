@@ -333,12 +333,23 @@ legend {
 
 .chart-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
 }
 
-#pie-chart {
+.chart-stack {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.chart-stack h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+#pie-chart-sessions,
+#pie-chart-billing {
   width: min(320px, 100%);
   height: auto;
   border-radius: 16px;

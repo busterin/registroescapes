@@ -114,6 +114,7 @@
                   <th>Sala</th>
                   <th>Categoría</th>
                   <th>Sesiones</th>
+                  <th>Facturación</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -121,6 +122,7 @@
             </table>
           </div>
           <p id="registros-empty" class="empty hidden">No hay registros para el filtro seleccionado.</p>
+          <div id="registros-total" class="total-box"></div>
         </div>
       </section>
 
@@ -229,7 +231,14 @@
           </div>
 
           <div class="chart-layout">
-            <canvas id="pie-chart" width="320" height="320" aria-label="Gráfico comparativo" role="img"></canvas>
+            <div class="chart-stack">
+              <h3>Sesiones</h3>
+              <canvas id="pie-chart-sessions" width="320" height="320" aria-label="Gráfico comparativo de sesiones" role="img"></canvas>
+            </div>
+            <div class="chart-stack">
+              <h3>Facturación</h3>
+              <canvas id="pie-chart-billing" width="320" height="320" aria-label="Gráfico comparativo de facturación" role="img"></canvas>
+            </div>
             <div id="compare-meta" class="compare-meta"></div>
           </div>
         </div>
