@@ -1,7 +1,7 @@
-const STORAGE_KEY = "registroescapes.records.v1";
 const AUTH_SESSION_KEY = "registroescapes.auth.ok.v1";
 const AUTH_REMEMBER_KEY = "registroescapes.auth.remember.v1";
 const AUTH_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
+const API_ENDPOINT = "api/records.php";
 
 const MONTHS = [
   "Enero",
@@ -23,7 +23,7 @@ const currentMonth = now.getMonth() + 1;
 const currentYear = now.getFullYear();
 
 const state = {
-  records: loadRecords(),
+  records: [],
   editingId: null,
   isBooted: false,
 };
@@ -76,15 +76,17 @@ init();
 function init() {
   bindAuthEvents();
   els.authRemember.checked = localStorage.getItem(AUTH_REMEMBER_KEY) === "1";
+
   if (isAuthenticated()) {
     unlockApp();
     bootApp();
     return;
   }
+
   lockApp();
 }
 
-function bootApp() {
+async function bootApp() {
   if (state.isBooted) return;
   state.isBooted = true;
 
@@ -100,7 +102,7 @@ function bootApp() {
   setDefaultFilters();
   bindEvents();
   resetFormMode();
-  renderAll();
+  await refreshRecords();
 }
 
 function bindAuthEvents() {
@@ -111,9 +113,7 @@ async function handleAuthSubmit(e) {
   e.preventDefault();
   els.authError.classList.add("hidden");
 
-  const input = els.authPassword.value;
-  const hash = await sha256Hex(input);
-
+  const hash = await sha256Hex(els.authPassword.value);
   if (!safeEqual(hash, AUTH_PASSWORD_HASH)) {
     els.authError.classList.remove("hidden");
     return;
@@ -128,9 +128,10 @@ async function handleAuthSubmit(e) {
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(AUTH_REMEMBER_KEY);
   }
+
   els.authPassword.value = "";
   unlockApp();
-  bootApp();
+  await bootApp();
 }
 
 function isAuthenticated() {
@@ -211,7 +212,7 @@ function bindEvents() {
   });
 }
 
-function handleSubmit(e) {
+async function handleSubmit(e) {
   e.preventDefault();
 
   const payload = {
@@ -222,27 +223,22 @@ function handleSubmit(e) {
     sessions: Number(els.sesiones.value),
   };
 
-  if (state.editingId) {
-    const target = state.records.find((r) => r.id === state.editingId);
-    if (target) {
-      Object.assign(target, payload);
+  try {
+    if (state.editingId) {
+      await apiUpdateRecord(state.editingId, payload);
+      resetFormMode();
+    } else {
+      await apiCreateRecord(payload);
+      els.sesiones.value = "";
     }
-    resetFormMode();
-  } else {
-    state.records.push({
-      id: crypto.randomUUID(),
-      ...payload,
-      createdAt: new Date().toISOString(),
-    });
-    els.sesiones.value = "";
-  }
 
-  saveRecords();
-  refreshYearSelectsWithData();
-  renderAll();
+    await refreshRecords();
+  } catch (error) {
+    notifyApiError(error);
+  }
 }
 
-function handleRegistroAction(e) {
+async function handleRegistroAction(e) {
   const button = e.target.closest("button[data-action]");
   if (!button) return;
 
@@ -253,12 +249,13 @@ function handleRegistroAction(e) {
     const ok = window.confirm("¿Eliminar este registro?");
     if (!ok) return;
 
-    state.records = state.records.filter((r) => r.id !== id);
-    if (state.editingId === id) {
-      resetFormMode();
+    try {
+      await apiDeleteRecord(id);
+      if (state.editingId === id) resetFormMode();
+      await refreshRecords();
+    } catch (error) {
+      notifyApiError(error);
     }
-    saveRecords();
-    renderAll();
     return;
   }
 
@@ -281,9 +278,7 @@ function handleRegistroAction(e) {
 
 function setSubmitLabel(text) {
   const submitButton = els.form.querySelector('button[type="submit"]');
-  if (submitButton) {
-    submitButton.textContent = text;
-  }
+  if (submitButton) submitButton.textContent = text;
 }
 
 function resetFormMode() {
@@ -291,35 +286,69 @@ function resetFormMode() {
   setSubmitLabel("Guardar registro");
 }
 
-function loadRecords() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+async function refreshRecords() {
+  const rows = await apiListRecords();
+  state.records = rows.map(normalizeRecord);
+  refreshYearSelectsWithData();
+  renderAll();
+}
 
-    return parsed.filter(isValidRecord).map((r, idx) => ({
-      ...r,
-      id: r.id || `legacy-${idx}-${Date.now()}`,
-    }));
-  } catch {
-    return [];
+function normalizeRecord(r) {
+  return {
+    id: String(r.id),
+    room: String(r.sala ?? r.room ?? ""),
+    category: String(r.categoria ?? r.category ?? ""),
+    month: Number(r.mes ?? r.month ?? 0),
+    year: Number(r.anio ?? r.year ?? 0),
+    sessions: Number(r.sesiones ?? r.sessions ?? 0),
+    createdAt: String(r.created_at ?? r.createdAt ?? new Date().toISOString()),
+  };
+}
+
+async function apiListRecords() {
+  const data = await apiRequest("GET");
+  return Array.isArray(data.records) ? data.records : [];
+}
+
+async function apiCreateRecord(payload) {
+  await apiRequest("POST", payload);
+}
+
+async function apiUpdateRecord(id, payload) {
+  await apiRequest("PUT", { id: Number(id), ...payload });
+}
+
+async function apiDeleteRecord(id) {
+  await apiRequest("DELETE", { id: Number(id) });
+}
+
+async function apiRequest(method, body) {
+  const options = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  };
+
+  if (method !== "GET") {
+    options.body = JSON.stringify(body || {});
   }
+
+  const response = await fetch(API_ENDPOINT, options);
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+
+  return data;
 }
 
-function saveRecords() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
-}
-
-function isValidRecord(record) {
-  return (
-    record &&
-    typeof record.room === "string" &&
-    typeof record.category === "string" &&
-    Number.isInteger(Number(record.month)) &&
-    Number.isInteger(Number(record.year)) &&
-    Number.isFinite(Number(record.sessions))
-  );
+function notifyApiError(error) {
+  console.error(error);
+  alert(`Error de servidor: ${error.message}`);
 }
 
 function fillMonthSelects(selects) {
@@ -365,9 +394,7 @@ function refreshYearSelectsWithData() {
   fillYearSelects();
 
   Object.entries(previous).forEach(([key, value]) => {
-    if (els[key] && value) {
-      els[key].value = value;
-    }
+    if (els[key] && value) els[key].value = value;
   });
 }
 
@@ -396,8 +423,7 @@ function setDefaultFilters() {
 }
 
 function toggleMonthIfYear(modeSelect, monthSelect) {
-  const isYear = modeSelect.value === "anio";
-  monthSelect.disabled = isYear;
+  monthSelect.disabled = modeSelect.value === "anio";
 }
 
 function renderAll() {
@@ -474,7 +500,7 @@ function renderRoomBreakdown(container, records, room) {
   const roomRows = records.filter((r) => r.room === room);
 
   if (!roomRows.length) {
-    container.innerHTML = "<p class=\"empty\">Sin datos para este periodo.</p>";
+    container.innerHTML = '<p class="empty">Sin datos para este periodo.</p>';
     return;
   }
 
