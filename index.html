@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro Escapes</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-bg"></div>
+    <main class="app">
+      <header class="topbar">
+        <h1>Registro Escapes</h1>
+        <nav class="tabs" aria-label="Secciones">
+          <button class="tab-btn active" data-section="registro">REGISTRO</button>
+          <button class="tab-btn" data-section="sesiones">SESIONES</button>
+          <button class="tab-btn" data-section="comparativa">COMPARATIVA</button>
+        </nav>
+      </header>
+
+      <section id="registro" class="panel active" aria-labelledby="registro">
+        <div class="card">
+          <h2>Nuevo registro</h2>
+          <form id="registro-form" class="grid-form">
+            <label>
+              Sala de escape
+              <select id="sala" required>
+                <option value="Frankie">Frankie</option>
+                <option value="Magia">Magia</option>
+                <option value="Filosofal">Filosofal</option>
+              </select>
+            </label>
+
+            <label>
+              Mes
+              <select id="mes" required></select>
+            </label>
+
+            <label>
+              Año
+              <select id="anio" required></select>
+            </label>
+
+            <label>
+              Categoría
+              <select id="categoria" required>
+                <option value="2a5p">2a5p</option>
+                <option value="6p">6p</option>
+                <option value="7p">7p</option>
+                <option value="2a6(Filo)">2a6(Filo)</option>
+                <option value="7 a 12(Filo)">7 a 12(Filo)</option>
+                <option value="Guiado">Guiado</option>
+                <option value="Merienda">Merienda</option>
+              </select>
+            </label>
+
+            <label>
+              N.º de sesiones
+              <input id="sesiones" type="number" min="0" step="1" required />
+            </label>
+
+            <button class="btn-primary" type="submit">Guardar registro</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Últimos registros</h2>
+            <div class="inline-filters">
+              <label>
+                Mes
+                <select id="filtro-registro-mes"></select>
+              </label>
+              <label>
+                Año
+                <select id="filtro-registro-anio"></select>
+              </label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Sala</th>
+                  <th>Categoría</th>
+                  <th>Sesiones</th>
+                </tr>
+              </thead>
+              <tbody id="registros-body"></tbody>
+            </table>
+          </div>
+          <p id="registros-empty" class="empty hidden">No hay registros para el filtro seleccionado.</p>
+        </div>
+      </section>
+
+      <section id="sesiones" class="panel" aria-labelledby="sesiones">
+        <div class="card">
+          <div class="card-head">
+            <h2>Resumen de sesiones</h2>
+            <div class="inline-filters">
+              <label>
+                Modo
+                <select id="sesiones-modo">
+                  <option value="mes">Mes concreto</option>
+                  <option value="anio">Año completo</option>
+                </select>
+              </label>
+              <label>
+                Mes
+                <select id="sesiones-mes"></select>
+              </label>
+              <label>
+                Año
+                <select id="sesiones-anio"></select>
+              </label>
+            </div>
+          </div>
+
+          <div id="total-global" class="total-box"></div>
+
+          <details class="accordion" open>
+            <summary>Frankie</summary>
+            <div id="sesiones-frankie"></div>
+          </details>
+
+          <details class="accordion">
+            <summary>Magia</summary>
+            <div id="sesiones-magia"></div>
+          </details>
+
+          <details class="accordion">
+            <summary>Filosofal</summary>
+            <div id="sesiones-filosofal"></div>
+          </details>
+        </div>
+      </section>
+
+      <section id="comparativa" class="panel" aria-labelledby="comparativa">
+        <div class="card">
+          <h2>Comparativa de periodos</h2>
+
+          <div class="compare-grid">
+            <fieldset>
+              <legend>Periodo A</legend>
+              <label>
+                Alcance
+                <select id="comp-a-modo">
+                  <option value="mes">Mes concreto</option>
+                  <option value="anio">Año completo</option>
+                </select>
+              </label>
+              <label>
+                Mes
+                <select id="comp-a-mes"></select>
+              </label>
+              <label>
+                Año
+                <select id="comp-a-anio"></select>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Periodo B</legend>
+              <label>
+                Alcance
+                <select id="comp-b-modo">
+                  <option value="mes">Mes concreto</option>
+                  <option value="anio">Año completo</option>
+                </select>
+              </label>
+              <label>
+                Mes
+                <select id="comp-b-mes"></select>
+              </label>
+              <label>
+                Año
+                <select id="comp-b-anio"></select>
+              </label>
+            </fieldset>
+          </div>
+
+          <div class="inline-filters bottom-gap">
+            <label>
+              Sala
+              <select id="comp-sala">
+                <option value="Todas">Todas las salas</option>
+                <option value="Frankie">Frankie</option>
+                <option value="Magia">Magia</option>
+                <option value="Filosofal">Filosofal</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="chart-layout">
+            <canvas id="pie-chart" width="320" height="320" aria-label="Gráfico comparativo" role="img"></canvas>
+            <div id="compare-meta" class="compare-meta"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
