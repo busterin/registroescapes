@@ -43,17 +43,25 @@ function start_app_session(bool $remember = false): void
     $config = app_config();
     $sessionName = (string)($config['session_name'] ?? 'regesc_sid');
     $lifetime = $remember ? 60 * 60 * 24 * 30 : 0;
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 
     ini_set('session.gc_maxlifetime', (string)(60 * 60 * 24 * 30));
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_secure', $isHttps ? '1' : '0');
 
     session_name($sessionName);
-    session_set_cookie_params([
-        'lifetime' => $lifetime,
-        'path' => '/',
-        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => $lifetime,
+            'path' => '/',
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    } else {
+        // Compatibilidad con PHP < 7.3 (sin array options ni SameSite nativo)
+        session_set_cookie_params($lifetime, '/');
+    }
 
     session_start();
 }
