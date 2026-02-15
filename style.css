@@ -40,6 +40,18 @@ body {
   padding: 1rem;
 }
 
+.brand-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0.2rem 0 0.75rem;
+}
+
+.brand-logo {
+  width: min(440px, 78vw);
+  height: auto;
+  display: block;
+}
+
 .topbar {
   position: sticky;
   top: 0;
