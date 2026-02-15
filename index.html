@@ -21,7 +21,10 @@
         <form id="auth-form" class="auth-form">
           <label>
             Contraseña
-            <input id="auth-password" type="password" autocomplete="current-password" required />
+            <div class="password-wrap">
+              <input id="auth-password" type="password" autocomplete="current-password" required />
+              <button id="auth-toggle-password" class="password-toggle" type="button" aria-label="Mostrar contraseña">👁</button>
+            </div>
           </label>
           <label class="remember-row">
             <input id="auth-remember" type="checkbox" />

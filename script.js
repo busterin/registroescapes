@@ -46,6 +46,7 @@ const els = {
   appRoot: document.getElementById("app-root"),
   authForm: document.getElementById("auth-form"),
   authPassword: document.getElementById("auth-password"),
+  authTogglePassword: document.getElementById("auth-toggle-password"),
   authRemember: document.getElementById("auth-remember"),
   authError: document.getElementById("auth-error"),
 
@@ -123,6 +124,16 @@ async function bootApp() {
 
 function bindAuthEvents() {
   els.authForm.addEventListener("submit", handleAuthSubmit);
+  els.authTogglePassword.addEventListener("click", toggleAuthPassword);
+}
+
+function toggleAuthPassword() {
+  const isHidden = els.authPassword.type === "password";
+  els.authPassword.type = isHidden ? "text" : "password";
+  els.authTogglePassword.setAttribute(
+    "aria-label",
+    isHidden ? "Ocultar contraseña" : "Mostrar contraseña"
+  );
 }
 
 async function handleAuthSubmit(e) {

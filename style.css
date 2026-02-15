@@ -63,6 +63,27 @@ body {
   gap: 0.7rem;
 }
 
+.password-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.password-wrap input {
+  width: 100%;
+}
+
+.password-toggle {
+  border: 2px solid var(--strong-line);
+  border-radius: 10px;
+  background: #ffffff;
+  min-width: 42px;
+  height: 40px;
+  cursor: pointer;
+  line-height: 1;
+}
+
 .remember-row {
   display: flex;
   align-items: center;
