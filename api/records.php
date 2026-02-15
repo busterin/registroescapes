@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
+require __DIR__ . '/common.php';
 
 const VALID_ROOMS = [
     'Frankie',
@@ -20,28 +20,6 @@ const VALID_CATEGORIES = [
     'Guiado',
     'Merienda',
 ];
-
-function respond(array $payload, int $statusCode = 200): never
-{
-    http_response_code($statusCode);
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-function read_json_body(): array
-{
-    $raw = file_get_contents('php://input');
-    if ($raw === false || trim($raw) === '') {
-        return [];
-    }
-
-    $decoded = json_decode($raw, true);
-    if (!is_array($decoded)) {
-        respond(['ok' => false, 'error' => 'JSON invalido'], 400);
-    }
-
-    return $decoded;
-}
 
 function validate_payload(array $data): array
 {
@@ -93,6 +71,8 @@ function fetch_record(PDO $pdo, int $id): ?array
     return $row !== false ? $row : null;
 }
 
+require_auth();
+
 try {
     /** @var PDO $pdo */
     $pdo = require __DIR__ . '/db.php';
@@ -116,8 +96,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
-    $data = read_json_body();
-    $payload = validate_payload($data);
+    $payload = validate_payload(read_json_body());
 
     $stmt = $pdo->prepare(
         'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones)

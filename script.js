@@ -1,7 +1,7 @@
-const AUTH_SESSION_KEY = "registroescapes.auth.ok.v1";
 const AUTH_REMEMBER_KEY = "registroescapes.auth.remember.v1";
-const AUTH_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
 const API_ENDPOINT = "api/records.php";
+const API_LOGIN_ENDPOINT = "api/login.php";
+const API_SESSION_ENDPOINT = "api/session.php";
 
 const MONTHS = [
   "Enero",
@@ -73,13 +73,14 @@ const els = {
 
 init();
 
-function init() {
+async function init() {
   bindAuthEvents();
   els.authRemember.checked = localStorage.getItem(AUTH_REMEMBER_KEY) === "1";
 
-  if (isAuthenticated()) {
+  const loggedIn = await isAuthenticated();
+  if (loggedIn) {
     unlockApp();
-    bootApp();
+    await bootApp();
     return;
   }
 
@@ -113,32 +114,30 @@ async function handleAuthSubmit(e) {
   e.preventDefault();
   els.authError.classList.add("hidden");
 
-  const hash = await sha256Hex(els.authPassword.value);
-  if (!safeEqual(hash, AUTH_PASSWORD_HASH)) {
+  try {
+    await apiLogin(els.authPassword.value, els.authRemember.checked);
+
+    if (els.authRemember.checked) {
+      localStorage.setItem(AUTH_REMEMBER_KEY, "1");
+    } else {
+      localStorage.removeItem(AUTH_REMEMBER_KEY);
+    }
+
+    els.authPassword.value = "";
+    unlockApp();
+    await bootApp();
+  } catch {
     els.authError.classList.remove("hidden");
-    return;
   }
-
-  if (els.authRemember.checked) {
-    localStorage.setItem(AUTH_SESSION_KEY, "1");
-    localStorage.setItem(AUTH_REMEMBER_KEY, "1");
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
-  } else {
-    sessionStorage.setItem(AUTH_SESSION_KEY, "1");
-    localStorage.removeItem(AUTH_SESSION_KEY);
-    localStorage.removeItem(AUTH_REMEMBER_KEY);
-  }
-
-  els.authPassword.value = "";
-  unlockApp();
-  await bootApp();
 }
 
-function isAuthenticated() {
-  return (
-    sessionStorage.getItem(AUTH_SESSION_KEY) === "1" ||
-    localStorage.getItem(AUTH_SESSION_KEY) === "1"
-  );
+async function isAuthenticated() {
+  try {
+    const data = await apiRequest("GET", null, API_SESSION_ENDPOINT);
+    return data.authenticated === true;
+  } catch {
+    return false;
+  }
 }
 
 function lockApp() {
@@ -149,23 +148,6 @@ function lockApp() {
 function unlockApp() {
   els.authGate.classList.add("hidden");
   els.appRoot.classList.remove("hidden");
-}
-
-async function sha256Hex(text) {
-  const data = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function safeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return out === 0;
 }
 
 function bindTabs() {
@@ -322,13 +304,18 @@ async function apiDeleteRecord(id) {
   await apiRequest("DELETE", { id: Number(id) });
 }
 
-async function apiRequest(method, body) {
+async function apiLogin(password, remember) {
+  await apiRequest("POST", { password, remember }, API_LOGIN_ENDPOINT);
+}
+
+async function apiRequest(method, body, endpoint = API_ENDPOINT) {
   const options = {
     method,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
+    credentials: "same-origin",
     cache: "no-store",
   };
 
@@ -336,10 +323,13 @@ async function apiRequest(method, body) {
     options.body = JSON.stringify(body || {});
   }
 
-  const response = await fetch(API_ENDPOINT, options);
+  const response = await fetch(endpoint, options);
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.ok === false) {
+    if (response.status === 401) {
+      lockApp();
+    }
     throw new Error(data.error || `HTTP ${response.status}`);
   }
 
