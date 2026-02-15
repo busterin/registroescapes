@@ -47,6 +47,7 @@ const els = {
   sesionesFrankie: document.getElementById("sesiones-frankie"),
   sesionesMagia: document.getElementById("sesiones-magia"),
   sesionesFilosofal: document.getElementById("sesiones-filosofal"),
+  sesionesVampiro: document.getElementById("sesiones-vampiro"),
 
   compAModo: document.getElementById("comp-a-modo"),
   compAMes: document.getElementById("comp-a-mes"),
@@ -358,6 +359,7 @@ function roomClassName(room) {
   if (room === "Frankie") return "room-frankie";
   if (room === "Magia") return "room-magia";
   if (room === "Filosofal") return "room-filosofal";
+  if (room === "El regreso del vampiro") return "room-vampiro";
   return "";
 }
 
@@ -376,6 +378,7 @@ function renderSesiones() {
   renderRoomBreakdown(els.sesionesFrankie, filtered, "Frankie");
   renderRoomBreakdown(els.sesionesMagia, filtered, "Magia");
   renderRoomBreakdown(els.sesionesFilosofal, filtered, "Filosofal");
+  renderRoomBreakdown(els.sesionesVampiro, filtered, "El regreso del vampiro");
 }
 
 function renderRoomBreakdown(container, records, room) {

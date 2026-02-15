@@ -262,6 +262,10 @@ td {
   background: #ffdced;
 }
 
+.accordion-vampiro summary {
+  background: #ffd7d7;
+}
+
 .accordion div {
   padding: 0.7rem;
 }
@@ -343,6 +347,10 @@ legend {
 
 .room-filosofal {
   background: #ffdced;
+}
+
+.room-vampiro {
+  background: #ffd7d7;
 }
 
 @keyframes reveal {
