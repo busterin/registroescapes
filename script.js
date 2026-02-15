@@ -457,6 +457,7 @@ function renderRegistroList() {
         <td>${formatDate(r.createdAt)}</td>
         <td><span class="room-tag ${roomClassName(r.room)}">${r.room}</span></td>
         <td>${r.category}</td>
+        <td>${formatCurrency(categoryPrice(r.category))} / sesión</td>
         <td>${r.sessions}</td>
         <td>${formatCurrency(recordBilling(r))}</td>
         <td>
