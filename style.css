@@ -221,6 +221,7 @@ select,
 input,
 button {
   font: inherit;
+  font-size: 16px;
 }
 
 select,
