@@ -43,8 +43,10 @@ body {
 
 .auth-gate {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   padding: 1rem;
 }
 
@@ -57,11 +59,16 @@ body {
   padding: 1rem;
 }
 
+.auth-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.75rem;
+}
+
 .auth-logo {
   width: min(170px, 45vw);
   height: auto;
   display: block;
-  margin: 0 auto 0.7rem;
 }
 
 .auth-form {
