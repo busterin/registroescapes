@@ -1,5 +1,6 @@
 const STORAGE_KEY = "registroescapes.records.v1";
 const AUTH_SESSION_KEY = "registroescapes.auth.ok.v1";
+const AUTH_REMEMBER_KEY = "registroescapes.auth.remember.v1";
 const AUTH_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
 
 const MONTHS = [
@@ -32,6 +33,7 @@ const els = {
   appRoot: document.getElementById("app-root"),
   authForm: document.getElementById("auth-form"),
   authPassword: document.getElementById("auth-password"),
+  authRemember: document.getElementById("auth-remember"),
   authError: document.getElementById("auth-error"),
 
   tabs: document.querySelectorAll(".tab-btn"),
@@ -73,6 +75,7 @@ init();
 
 function init() {
   bindAuthEvents();
+  els.authRemember.checked = localStorage.getItem(AUTH_REMEMBER_KEY) === "1";
   if (isAuthenticated()) {
     unlockApp();
     bootApp();
@@ -116,14 +119,25 @@ async function handleAuthSubmit(e) {
     return;
   }
 
-  sessionStorage.setItem(AUTH_SESSION_KEY, "1");
+  if (els.authRemember.checked) {
+    localStorage.setItem(AUTH_SESSION_KEY, "1");
+    localStorage.setItem(AUTH_REMEMBER_KEY, "1");
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  } else {
+    sessionStorage.setItem(AUTH_SESSION_KEY, "1");
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(AUTH_REMEMBER_KEY);
+  }
   els.authPassword.value = "";
   unlockApp();
   bootApp();
 }
 
 function isAuthenticated() {
-  return sessionStorage.getItem(AUTH_SESSION_KEY) === "1";
+  return (
+    sessionStorage.getItem(AUTH_SESSION_KEY) === "1" ||
+    localStorage.getItem(AUTH_SESSION_KEY) === "1"
+  );
 }
 
 function lockApp() {

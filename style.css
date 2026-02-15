@@ -76,6 +76,18 @@ body {
   gap: 0.7rem;
 }
 
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+}
+
+.remember-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 .auth-error {
   margin: 0.65rem 0 0;
   color: #8d2f16;
