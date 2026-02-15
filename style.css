@@ -41,6 +41,40 @@ body {
   padding: 1rem;
 }
 
+.auth-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.auth-card {
+  width: min(420px, 92vw);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.auth-logo {
+  width: min(170px, 45vw);
+  height: auto;
+  display: block;
+  margin: 0 auto 0.7rem;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.auth-error {
+  margin: 0.65rem 0 0;
+  color: #8d2f16;
+  font-weight: 700;
+}
+
 .brand-logo-wrap {
   display: flex;
   justify-content: center;

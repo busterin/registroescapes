@@ -1,4 +1,6 @@
 const STORAGE_KEY = "registroescapes.records.v1";
+const AUTH_SESSION_KEY = "registroescapes.auth.ok.v1";
+const AUTH_PASSWORD_HASH = "a9cbcf2e05bcbf847dc59a1cad498778e1405f645f9039c1eee791afc6faaf1f";
 
 const MONTHS = [
   "Enero",
@@ -22,9 +24,16 @@ const currentYear = now.getFullYear();
 const state = {
   records: loadRecords(),
   editingId: null,
+  isBooted: false,
 };
 
 const els = {
+  authGate: document.getElementById("auth-gate"),
+  appRoot: document.getElementById("app-root"),
+  authForm: document.getElementById("auth-form"),
+  authPassword: document.getElementById("auth-password"),
+  authError: document.getElementById("auth-error"),
+
   tabs: document.querySelectorAll(".tab-btn"),
   panels: document.querySelectorAll(".panel"),
 
@@ -63,6 +72,19 @@ const els = {
 init();
 
 function init() {
+  bindAuthEvents();
+  if (isAuthenticated()) {
+    unlockApp();
+    bootApp();
+    return;
+  }
+  lockApp();
+}
+
+function bootApp() {
+  if (state.isBooted) return;
+  state.isBooted = true;
+
   bindTabs();
   fillMonthSelects([
     els.mes,
@@ -76,6 +98,59 @@ function init() {
   bindEvents();
   resetFormMode();
   renderAll();
+}
+
+function bindAuthEvents() {
+  els.authForm.addEventListener("submit", handleAuthSubmit);
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  els.authError.classList.add("hidden");
+
+  const input = els.authPassword.value;
+  const hash = await sha256Hex(input);
+
+  if (!safeEqual(hash, AUTH_PASSWORD_HASH)) {
+    els.authError.classList.remove("hidden");
+    return;
+  }
+
+  sessionStorage.setItem(AUTH_SESSION_KEY, "1");
+  els.authPassword.value = "";
+  unlockApp();
+  bootApp();
+}
+
+function isAuthenticated() {
+  return sessionStorage.getItem(AUTH_SESSION_KEY) === "1";
+}
+
+function lockApp() {
+  els.authGate.classList.remove("hidden");
+  els.appRoot.classList.add("hidden");
+}
+
+function unlockApp() {
+  els.authGate.classList.add("hidden");
+  els.appRoot.classList.remove("hidden");
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
 }
 
 function bindTabs() {

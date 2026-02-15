@@ -8,7 +8,22 @@
   </head>
   <body>
     <div class="app-bg"></div>
-    <main class="app">
+    <section id="auth-gate" class="auth-gate">
+      <div class="auth-card">
+        <img class="auth-logo" src="images/logoblanco.png" alt="Logo" />
+        <h2>Acceso privado</h2>
+        <form id="auth-form" class="auth-form">
+          <label>
+            Contraseña
+            <input id="auth-password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="btn-primary" type="submit">Entrar</button>
+        </form>
+        <p id="auth-error" class="auth-error hidden">Contraseña incorrecta.</p>
+      </div>
+    </section>
+
+    <main id="app-root" class="app hidden">
       <div class="brand-logo-wrap" aria-label="Logo">
         <img class="brand-logo" src="images/logoblanco.png" alt="Logo" />
       </div>
