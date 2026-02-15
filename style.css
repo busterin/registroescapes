@@ -325,6 +325,26 @@ legend {
   margin-right: 0.35rem;
 }
 
+.room-tag {
+  display: inline-block;
+  border: 2px solid var(--strong-line);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-weight: 700;
+}
+
+.room-frankie {
+  background: #d8f2df;
+}
+
+.room-magia {
+  background: #e9dcff;
+}
+
+.room-filosofal {
+  background: #ffdced;
+}
+
 @keyframes reveal {
   from {
     opacity: 0;

@@ -338,7 +338,7 @@ function renderRegistroList() {
       (r) => `
       <tr>
         <td>${formatDate(r.createdAt)}</td>
-        <td>${r.room}</td>
+        <td><span class="room-tag ${roomClassName(r.room)}">${r.room}</span></td>
         <td>${r.category}</td>
         <td>${r.sessions}</td>
         <td>
@@ -352,6 +352,13 @@ function renderRegistroList() {
     .join("");
 
   els.registrosEmpty.classList.toggle("hidden", rows.length > 0);
+}
+
+function roomClassName(room) {
+  if (room === "Frankie") return "room-frankie";
+  if (room === "Magia") return "room-magia";
+  if (room === "Filosofal") return "room-filosofal";
+  return "";
 }
 
 function renderSesiones() {
