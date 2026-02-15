@@ -2,6 +2,10 @@ const AUTH_REMEMBER_KEY = "registroescapes.auth.remember.v1";
 const API_ENDPOINT = "api/records.php";
 const API_LOGIN_ENDPOINT = "api/login.php";
 const API_SESSION_ENDPOINT = "api/session.php";
+const LOCAL_AUTH_SESSION_KEY = "registroescapes.auth.local.ok.v1";
+const LOCAL_RECORDS_KEY = "registroescapes.records.local.v1";
+const LOCAL_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
+const USE_BACKEND = !window.location.hostname.endsWith("github.io");
 const CATEGORY_PRICES = Object.freeze({
   "2a5p": 85,
   "6p": 100,
@@ -125,6 +129,26 @@ async function handleAuthSubmit(e) {
   e.preventDefault();
   els.authError.classList.add("hidden");
 
+  if (!USE_BACKEND) {
+    const hash = await sha256Hex(els.authPassword.value);
+    if (!safeEqual(hash, LOCAL_PASSWORD_HASH)) {
+      els.authError.classList.remove("hidden");
+      return;
+    }
+
+    localStorage.setItem(LOCAL_AUTH_SESSION_KEY, "1");
+    if (els.authRemember.checked) {
+      localStorage.setItem(AUTH_REMEMBER_KEY, "1");
+    } else {
+      localStorage.removeItem(AUTH_REMEMBER_KEY);
+    }
+
+    els.authPassword.value = "";
+    unlockApp();
+    await bootApp();
+    return;
+  }
+
   try {
     await apiLogin(els.authPassword.value, els.authRemember.checked);
 
@@ -143,6 +167,10 @@ async function handleAuthSubmit(e) {
 }
 
 async function isAuthenticated() {
+  if (!USE_BACKEND) {
+    return localStorage.getItem(LOCAL_AUTH_SESSION_KEY) === "1";
+  }
+
   try {
     const data = await apiRequest("GET", null, API_SESSION_ENDPOINT);
     return data.authenticated === true;
@@ -299,19 +327,34 @@ function normalizeRecord(r) {
 }
 
 async function apiListRecords() {
+  if (!USE_BACKEND) {
+    return localListRecords();
+  }
   const data = await apiRequest("GET");
   return Array.isArray(data.records) ? data.records : [];
 }
 
 async function apiCreateRecord(payload) {
+  if (!USE_BACKEND) {
+    localCreateRecord(payload);
+    return;
+  }
   await apiRequest("POST", payload);
 }
 
 async function apiUpdateRecord(id, payload) {
+  if (!USE_BACKEND) {
+    localUpdateRecord(id, payload);
+    return;
+  }
   await apiRequest("PUT", { id: Number(id), ...payload });
 }
 
 async function apiDeleteRecord(id) {
+  if (!USE_BACKEND) {
+    localDeleteRecord(id);
+    return;
+  }
   await apiRequest("DELETE", { id: Number(id) });
 }
 
@@ -350,6 +393,81 @@ async function apiRequest(method, body, endpoint = API_ENDPOINT) {
 function notifyApiError(error) {
   console.error(error);
   alert(`Error de servidor: ${error.message}`);
+}
+
+function localListRecords() {
+  const raw = localStorage.getItem(LOCAL_RECORDS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function localSaveRecords(records) {
+  localStorage.setItem(LOCAL_RECORDS_KEY, JSON.stringify(records));
+}
+
+function localCreateRecord(payload) {
+  const records = localListRecords();
+  records.unshift({
+    id: createLocalId(),
+    sala: payload.room,
+    categoria: payload.category,
+    mes: payload.month,
+    anio: payload.year,
+    sesiones: payload.sessions,
+    created_at: new Date().toISOString(),
+  });
+  localSaveRecords(records);
+}
+
+function localUpdateRecord(id, payload) {
+  const records = localListRecords();
+  const updated = records.map((r) =>
+    String(r.id) === String(id)
+      ? {
+          ...r,
+          sala: payload.room,
+          categoria: payload.category,
+          mes: payload.month,
+          anio: payload.year,
+          sesiones: payload.sessions,
+        }
+      : r
+  );
+  localSaveRecords(updated);
+}
+
+function localDeleteRecord(id) {
+  const records = localListRecords().filter((r) => String(r.id) !== String(id));
+  localSaveRecords(records);
+}
+
+function createLocalId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
 }
 
 function fillMonthSelects(selects) {
