@@ -1,6 +1,6 @@
 const STORAGE_KEY = "registroescapes.records.v1";
 const AUTH_SESSION_KEY = "registroescapes.auth.ok.v1";
-const AUTH_PASSWORD_HASH = "a9cbcf2e05bcbf847dc59a1cad498778e1405f645f9039c1eee791afc6faaf1f";
+const AUTH_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
 
 const MONTHS = [
   "Enero",
