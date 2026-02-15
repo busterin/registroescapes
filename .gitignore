@@ -1,0 +1,14 @@
+# Sistema
+.DS_Store
+
+# Dependencias
+node_modules/
+
+# Entorno
+.env
+.env.*
+
+# Build
+build/
+dist/
+coverage/
