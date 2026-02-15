@@ -13,6 +13,11 @@
   --strong-line: #111111;
 }
 
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -23,6 +28,7 @@ body {
   font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--bg);
+  overflow-x: hidden;
 }
 
 .app-bg {

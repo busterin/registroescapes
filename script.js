@@ -550,6 +550,12 @@ function setDefaultFilters() {
   toggleMonthIfYear(els.sesionesModo, els.sesionesMes);
   toggleMonthIfYear(els.compAModo, els.compAMes);
   toggleMonthIfYear(els.compBModo, els.compBMes);
+
+  // Opcion especial solo para el listado de "Ultimos registros"
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "Todos los registros";
+  els.filtroRegistroMes.prepend(allOption);
 }
 
 function toggleMonthIfYear(modeSelect, monthSelect) {
@@ -571,13 +577,15 @@ function filterByPeriod(records, mode, month, year) {
 }
 
 function renderRegistroList() {
-  const month = Number(els.filtroRegistroMes.value);
+  const monthValue = els.filtroRegistroMes.value;
   const year = Number(els.filtroRegistroAnio.value);
 
   const rows = state.records
-    .filter((r) => Number(r.month) === month && Number(r.year) === year)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 30);
+    .filter((r) => {
+      if (monthValue === "all") return true;
+      return Number(r.month) === Number(monthValue) && Number(r.year) === year;
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   els.registrosBody.innerHTML = rows
     .map(
@@ -601,7 +609,11 @@ function renderRegistroList() {
 
   els.registrosEmpty.classList.toggle("hidden", rows.length > 0);
   const totalBilling = rows.reduce((acc, r) => acc + recordBilling(r), 0);
-  els.registrosTotal.textContent = `Facturación total del periodo filtrado: ${formatCurrency(totalBilling)}`;
+  const filterText =
+    monthValue === "all"
+      ? "todos los registros"
+      : `${MONTHS[Number(monthValue) - 1]} ${year}`;
+  els.registrosTotal.textContent = `Facturación total (${filterText}): ${formatCurrency(totalBilling)}`;
 }
 
 function roomClassName(room) {
