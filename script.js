@@ -1,6 +1,5 @@
 const STORAGE_KEY = "registroescapes.records.v1";
 
-const ROOMS = ["Frankie", "Magia", "Filosofal"];
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -22,6 +21,7 @@ const currentYear = now.getFullYear();
 
 const state = {
   records: loadRecords(),
+  editingId: null,
 };
 
 const els = {
@@ -73,6 +73,7 @@ function init() {
   fillYearSelects();
   setDefaultFilters();
   bindEvents();
+  resetFormMode();
   renderAll();
 }
 
@@ -90,6 +91,7 @@ function bindTabs() {
 
 function bindEvents() {
   els.form.addEventListener("submit", handleSubmit);
+  els.registrosBody.addEventListener("click", handleRegistroAction);
 
   [els.filtroRegistroMes, els.filtroRegistroAnio].forEach((el) => {
     el.addEventListener("change", renderRegistroList);
@@ -122,23 +124,81 @@ function bindEvents() {
 function handleSubmit(e) {
   e.preventDefault();
 
-  const item = {
-    id: crypto.randomUUID(),
+  const payload = {
     room: els.sala.value,
     month: Number(els.mes.value),
     year: Number(els.anio.value),
     category: els.categoria.value,
     sessions: Number(els.sesiones.value),
-    createdAt: new Date().toISOString(),
   };
 
-  state.records.push(item);
+  if (state.editingId) {
+    const target = state.records.find((r) => r.id === state.editingId);
+    if (target) {
+      Object.assign(target, payload);
+    }
+    resetFormMode();
+  } else {
+    state.records.push({
+      id: crypto.randomUUID(),
+      ...payload,
+      createdAt: new Date().toISOString(),
+    });
+    els.sesiones.value = "";
+  }
+
   saveRecords();
   refreshYearSelectsWithData();
-
-  els.sesiones.value = "";
-
   renderAll();
+}
+
+function handleRegistroAction(e) {
+  const button = e.target.closest("button[data-action]");
+  if (!button) return;
+
+  const { action, id } = button.dataset;
+  if (!id) return;
+
+  if (action === "delete") {
+    const ok = window.confirm("¿Eliminar este registro?");
+    if (!ok) return;
+
+    state.records = state.records.filter((r) => r.id !== id);
+    if (state.editingId === id) {
+      resetFormMode();
+    }
+    saveRecords();
+    renderAll();
+    return;
+  }
+
+  if (action === "edit") {
+    const record = state.records.find((r) => r.id === id);
+    if (!record) return;
+
+    els.sala.value = record.room;
+    els.mes.value = String(record.month);
+    els.anio.value = String(record.year);
+    els.categoria.value = record.category;
+    els.sesiones.value = String(record.sessions);
+
+    state.editingId = id;
+    setSubmitLabel("Actualizar registro");
+
+    document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function setSubmitLabel(text) {
+  const submitButton = els.form.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.textContent = text;
+  }
+}
+
+function resetFormMode() {
+  state.editingId = null;
+  setSubmitLabel("Guardar registro");
 }
 
 function loadRecords() {
@@ -147,7 +207,11 @@ function loadRecords() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidRecord);
+
+    return parsed.filter(isValidRecord).map((r, idx) => ({
+      ...r,
+      id: r.id || `legacy-${idx}-${Date.now()}`,
+    }));
   } catch {
     return [];
   }
@@ -277,6 +341,12 @@ function renderRegistroList() {
         <td>${r.room}</td>
         <td>${r.category}</td>
         <td>${r.sessions}</td>
+        <td>
+          <div class="row-actions">
+            <button type="button" class="btn-row" data-action="edit" data-id="${r.id}">Editar</button>
+            <button type="button" class="btn-row btn-row-danger" data-action="delete" data-id="${r.id}">Eliminar</button>
+          </div>
+        </td>
       </tr>`
     )
     .join("");
@@ -292,9 +362,7 @@ function renderSesiones() {
 
   const totalGlobal = filtered.reduce((acc, r) => acc + Number(r.sessions), 0);
   const periodText =
-    mode === "anio"
-      ? `Año ${year}`
-      : `${MONTHS[month - 1]} ${year}`;
+    mode === "anio" ? `Año ${year}` : `${MONTHS[month - 1]} ${year}`;
 
   els.totalGlobal.textContent = `Total global (${periodText}): ${totalGlobal} sesiones`;
 
@@ -394,7 +462,7 @@ function drawPieChart(a, b) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
-  const radius = Math.min(width, height) * 0.36;
+  const radius = Math.min(width, height) * 0.31;
   const x = width / 2;
   const y = height / 2;
   const total = a + b;
@@ -409,18 +477,21 @@ function drawPieChart(a, b) {
     return;
   }
 
+  const start = -Math.PI / 2;
   const angleA = (a / total) * Math.PI * 2;
+  const pctA = (a / total) * 100;
+  const pctB = (b / total) * 100;
 
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + angleA);
+  ctx.arc(x, y, radius, start, start + angleA);
   ctx.closePath();
   ctx.fillStyle = "#b84e2f";
   ctx.fill();
 
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.arc(x, y, radius, -Math.PI / 2 + angleA, -Math.PI / 2 + Math.PI * 2);
+  ctx.arc(x, y, radius, start + angleA, start + Math.PI * 2);
   ctx.closePath();
   ctx.fillStyle = "#3f6f5b";
   ctx.fill();
@@ -434,15 +505,54 @@ function drawPieChart(a, b) {
   ctx.font = "700 18px Avenir Next";
   ctx.textAlign = "center";
   ctx.fillText(`${total} ses.`, x, y + 6);
+
+  drawPieLabel(ctx, x, y, radius, start + angleA / 2, `${pctA.toFixed(1)}%`, "#b84e2f");
+  drawPieLabel(
+    ctx,
+    x,
+    y,
+    radius,
+    start + angleA + (Math.PI * 2 - angleA) / 2,
+    `${pctB.toFixed(1)}%`,
+    "#3f6f5b"
+  );
+}
+
+function drawPieLabel(ctx, centerX, centerY, radius, angle, text, color) {
+  const lineStart = radius + 6;
+  const lineEnd = radius + 18;
+  const labelOffset = radius + 28;
+
+  const sx = centerX + Math.cos(angle) * lineStart;
+  const sy = centerY + Math.sin(angle) * lineStart;
+  const ex = centerX + Math.cos(angle) * lineEnd;
+  const ey = centerY + Math.sin(angle) * lineEnd;
+  const lx = centerX + Math.cos(angle) * labelOffset;
+  const ly = centerY + Math.sin(angle) * labelOffset;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+
+  ctx.fillStyle = "#22201c";
+  ctx.font = "700 13px Avenir Next";
+  ctx.textAlign = Math.cos(angle) >= 0 ? "left" : "right";
+  ctx.fillText(text, lx, ly + 4);
 }
 
 function renderCompareMeta(labelA, labelB, totalA, totalB, roomScope) {
   const diff = totalB - totalA;
   const trend = diff === 0 ? "Sin variación" : diff > 0 ? `+${diff}` : `${diff}`;
+  const total = totalA + totalB;
+  const pctA = total > 0 ? ((totalA / total) * 100).toFixed(1) : "0.0";
+  const pctB = total > 0 ? ((totalB / total) * 100).toFixed(1) : "0.0";
 
   els.compareMeta.innerHTML = `
-    <div class="meta-item"><span class="dot" style="background:#b84e2f"></span><strong>${labelA}</strong>: ${totalA} sesiones</div>
-    <div class="meta-item"><span class="dot" style="background:#3f6f5b"></span><strong>${labelB}</strong>: ${totalB} sesiones</div>
+    <div class="meta-item"><span class="dot" style="background:#b84e2f"></span><strong>${labelA}</strong>: ${totalA} sesiones (${pctA}%)</div>
+    <div class="meta-item"><span class="dot" style="background:#3f6f5b"></span><strong>${labelB}</strong>: ${totalB} sesiones (${pctB}%)</div>
     <div class="meta-item"><strong>Sala:</strong> ${roomScope}</div>
     <div class="meta-item"><strong>Diferencia (B - A):</strong> ${trend}</div>
   `;

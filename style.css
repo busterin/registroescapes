@@ -161,6 +161,28 @@ input {
   flex-wrap: wrap;
 }
 
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.btn-row {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.btn-row-danger {
+  border-color: #d7a59a;
+  background: #fff0ec;
+  color: #8d2f16;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
