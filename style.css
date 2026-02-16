@@ -414,11 +414,14 @@ legend {
 }
 
 .room-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   border: 2px solid var(--strong-line);
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .room-frankie {
