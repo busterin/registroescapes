@@ -600,7 +600,7 @@ function renderRegistroList() {
     .map(
       (r) => `
       <tr>
-        <td>${formatDate(r.createdAt)}</td>
+        <td>${formatRecordPeriod(r)}</td>
         <td><span class="room-tag ${roomClassName(r.room)}">${r.room}</span></td>
         <td>${r.category}</td>
         <td>${formatCurrency(categoryPrice(r.category))} / sesión</td>
@@ -906,4 +906,13 @@ function formatDate(isoDate) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatRecordPeriod(record) {
+  const month = Number(record.month);
+  const year = Number(record.year);
+  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) {
+    return "-";
+  }
+  return `${MONTHS[month - 1]} ${year}`;
 }
