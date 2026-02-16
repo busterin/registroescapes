@@ -601,7 +601,7 @@ function renderRegistroList() {
       (r) => `
       <tr>
         <td>${formatRecordPeriod(r)}</td>
-        <td><span class="room-tag ${roomClassName(r.room)}">${r.room}</span></td>
+        <td><span class="room-tag ${roomClassName(r.room)}">${displayRoomName(r.room)}</span></td>
         <td>${r.category}</td>
         <td>${formatCurrency(categoryPrice(r.category))} / sesión</td>
         <td>${r.sessions}</td>
@@ -631,6 +631,11 @@ function roomClassName(room) {
   if (room === "Filosofal") return "room-filosofal";
   if (room === "El regreso del vampiro") return "room-vampiro";
   return "";
+}
+
+function displayRoomName(room) {
+  if (room === "El regreso del vampiro") return "Vampiro";
+  return room;
 }
 
 function renderSesiones() {
@@ -696,7 +701,7 @@ function renderRoomBreakdown(container, records, room) {
         <tbody>${categoryRows}</tbody>
       </table>
     </div>
-    <p><strong>Total ${room}: ${totalRoom} sesiones | ${formatCurrency(totalRoomBilling)}</strong></p>
+    <p><strong>Total ${displayRoomName(room)}: ${totalRoom} sesiones | ${formatCurrency(totalRoomBilling)}</strong></p>
   `;
 }
 
@@ -868,7 +873,7 @@ function renderCompareMeta(labelA, labelB, totalsA, totalsB, roomScope) {
   els.compareMeta.innerHTML = `
     <div class="meta-item"><span class="dot" style="background:#b84e2f"></span><strong>${labelA}</strong> - Sesiones: ${totalsA.sessions} (${pctSessionsA}%) | Facturación: ${formatCurrency(totalsA.billing)} (${pctBillingA}%)</div>
     <div class="meta-item"><span class="dot" style="background:#3f6f5b"></span><strong>${labelB}</strong> - Sesiones: ${totalsB.sessions} (${pctSessionsB}%) | Facturación: ${formatCurrency(totalsB.billing)} (${pctBillingB}%)</div>
-    <div class="meta-item"><strong>Sala:</strong> ${roomScope}</div>
+    <div class="meta-item"><strong>Sala:</strong> ${displayRoomName(roomScope)}</div>
     <div class="meta-item"><strong>Diferencia sesiones (B - A):</strong> ${trendSessions}</div>
     <div class="meta-item"><strong>Diferencia facturación (B - A):</strong> ${trendBilling}</div>
   `;
