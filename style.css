@@ -292,6 +292,10 @@ td {
   text-align: center;
 }
 
+#registro tbody td {
+  text-align: center;
+}
+
 .empty {
   color: var(--muted);
   margin: 0.6rem 0 0;
