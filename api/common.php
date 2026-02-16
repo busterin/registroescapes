@@ -34,6 +34,43 @@ function app_config(): array
     return $config;
 }
 
+function app_is_https(): bool
+{
+    return !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+}
+
+function app_remember_cookie_name(): string
+{
+    $config = app_config();
+    $sessionName = (string)($config['session_name'] ?? 'regesc_sid');
+    return $sessionName . '_remember';
+}
+
+function has_remember_cookie(): bool
+{
+    $cookieName = app_remember_cookie_name();
+    return ($_COOKIE[$cookieName] ?? '') === '1';
+}
+
+function set_remember_cookie(bool $remember): void
+{
+    $cookieName = app_remember_cookie_name();
+    $isHttps = app_is_https();
+    $expire = $remember ? (time() + (60 * 60 * 24 * 30)) : (time() - 3600);
+
+    if (PHP_VERSION_ID >= 70300) {
+        setcookie($cookieName, $remember ? '1' : '', [
+            'expires' => $expire,
+            'path' => '/',
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    } else {
+        setcookie($cookieName, $remember ? '1' : '', $expire, '/');
+    }
+}
+
 function start_app_session(bool $remember = false): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -42,8 +79,9 @@ function start_app_session(bool $remember = false): void
 
     $config = app_config();
     $sessionName = (string)($config['session_name'] ?? 'regesc_sid');
-    $lifetime = $remember ? 60 * 60 * 24 * 30 : 0;
-    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $keepRemember = $remember || has_remember_cookie();
+    $lifetime = $keepRemember ? 60 * 60 * 24 * 30 : 0;
+    $isHttps = app_is_https();
 
     ini_set('session.gc_maxlifetime', (string)(60 * 60 * 24 * 30));
     ini_set('session.cookie_httponly', '1');

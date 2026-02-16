@@ -27,5 +27,6 @@ if (!hash_equals($expectedHash, $providedHash)) {
 start_app_session($remember);
 $_SESSION['auth_ok'] = true;
 $_SESSION['auth_at'] = time();
+set_remember_cookie($remember);
 
 respond(['ok' => true]);
