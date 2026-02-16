@@ -39,6 +39,7 @@ const state = {
   records: [],
   editingId: null,
   isBooted: false,
+  toastTimer: null,
 };
 
 const els = {
@@ -49,6 +50,7 @@ const els = {
   authTogglePassword: document.getElementById("auth-toggle-password"),
   authRemember: document.getElementById("auth-remember"),
   authError: document.getElementById("auth-error"),
+  appToast: document.getElementById("app-toast"),
 
   tabs: document.querySelectorAll(".tab-btn"),
   panels: document.querySelectorAll(".panel"),
@@ -262,9 +264,11 @@ async function handleSubmit(e) {
     if (state.editingId) {
       await apiUpdateRecord(state.editingId, payload);
       resetFormMode();
+      showToast("Registro actualizado correctamente");
     } else {
       await apiCreateRecord(payload);
       els.sesiones.value = "";
+      showToast("Registro añadido correctamente");
     }
 
     await refreshRecords();
@@ -288,6 +292,7 @@ async function handleRegistroAction(e) {
       await apiDeleteRecord(id);
       if (state.editingId === id) resetFormMode();
       await refreshRecords();
+      showToast("Registro eliminado");
     } catch (error) {
       notifyApiError(error);
     }
@@ -407,6 +412,22 @@ async function apiRequest(method, body, endpoint = API_ENDPOINT) {
 function notifyApiError(error) {
   console.error(error);
   alert(`Error de servidor: ${error.message}`);
+}
+
+function showToast(message) {
+  if (!els.appToast) return;
+
+  els.appToast.textContent = message;
+  els.appToast.classList.remove("hidden");
+
+  if (state.toastTimer) {
+    clearTimeout(state.toastTimer);
+  }
+
+  state.toastTimer = setTimeout(() => {
+    els.appToast.classList.add("hidden");
+    state.toastTimer = null;
+  }, 1800);
 }
 
 function localListRecords() {
