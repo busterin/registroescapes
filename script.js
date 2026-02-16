@@ -791,7 +791,7 @@ function drawPieChart(canvas, a, b, centerText) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
-  const radius = Math.min(width, height) * 0.31;
+  const radius = Math.min(width, height) * 0.27;
   const x = width / 2;
   const y = height / 2;
   const total = a + b;
@@ -849,15 +849,17 @@ function drawPieChart(canvas, a, b, centerText) {
 
 function drawPieLabel(ctx, centerX, centerY, radius, angle, text, color) {
   const lineStart = radius + 6;
-  const lineEnd = radius + 18;
-  const labelOffset = radius + 28;
+  const lineEnd = radius + 14;
+  const labelOffset = radius + 20;
+  const margin = 14;
 
   const sx = centerX + Math.cos(angle) * lineStart;
   const sy = centerY + Math.sin(angle) * lineStart;
   const ex = centerX + Math.cos(angle) * lineEnd;
   const ey = centerY + Math.sin(angle) * lineEnd;
-  const lx = centerX + Math.cos(angle) * labelOffset;
+  const rawLx = centerX + Math.cos(angle) * labelOffset;
   const ly = centerY + Math.sin(angle) * labelOffset;
+  const isRight = Math.cos(angle) >= 0;
 
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
@@ -868,7 +870,11 @@ function drawPieLabel(ctx, centerX, centerY, radius, angle, text, color) {
 
   ctx.fillStyle = "#22201c";
   ctx.font = "700 13px Avenir Next";
-  ctx.textAlign = Math.cos(angle) >= 0 ? "left" : "right";
+  const textWidth = ctx.measureText(text).width;
+  const minX = margin + (isRight ? 0 : textWidth);
+  const maxX = ctx.canvas.width - margin - (isRight ? textWidth : 0);
+  const lx = Math.min(Math.max(rawLx, minX), maxX);
+  ctx.textAlign = isRight ? "left" : "right";
   ctx.fillText(text, lx, ly + 4);
 }
 
