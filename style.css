@@ -288,6 +288,10 @@ td {
   font-size: 0.92rem;
 }
 
+#registro thead th {
+  text-align: center;
+}
+
 .empty {
   color: var(--muted);
   margin: 0.6rem 0 0;
