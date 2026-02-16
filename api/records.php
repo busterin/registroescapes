@@ -28,6 +28,9 @@ function validate_payload(array $data): array
     $month = filter_var($data['month'] ?? null, FILTER_VALIDATE_INT);
     $year = filter_var($data['year'] ?? null, FILTER_VALIDATE_INT);
     $sessions = filter_var($data['sessions'] ?? null, FILTER_VALIDATE_INT);
+    $nightSession = filter_var($data['nightSession'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $escapeUp = filter_var($data['escapeUp'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $agency = filter_var($data['agency'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
     if (!in_array($room, VALID_ROOMS, true)) {
         respond(['ok' => false, 'error' => 'Sala no valida'], 422);
@@ -55,13 +58,16 @@ function validate_payload(array $data): array
         'month' => $month,
         'year' => $year,
         'sessions' => $sessions,
+        'nightSession' => $nightSession,
+        'escapeUp' => $escapeUp,
+        'agency' => $agency,
     ];
 }
 
 function fetch_record(PDO $pdo, int $id): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT id, sala, categoria, mes, anio, sesiones, created_at, updated_at
+        'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
          FROM registros_sesiones
          WHERE id = :id'
     );
@@ -84,7 +90,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
     $stmt = $pdo->query(
-        'SELECT id, sala, categoria, mes, anio, sesiones, created_at, updated_at
+        'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
          FROM registros_sesiones
          ORDER BY created_at DESC, id DESC'
     );
@@ -99,8 +105,8 @@ if ($method === 'POST') {
     $payload = validate_payload(read_json_body());
 
     $stmt = $pdo->prepare(
-        'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones)
-         VALUES (:sala, :categoria, :mes, :anio, :sesiones)'
+        'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia)
+         VALUES (:sala, :categoria, :mes, :anio, :sesiones, :nocturna, :escape_up, :agencia)'
     );
 
     $stmt->execute([
@@ -109,6 +115,9 @@ if ($method === 'POST') {
         'mes' => $payload['month'],
         'anio' => $payload['year'],
         'sesiones' => $payload['sessions'],
+        'nocturna' => $payload['nightSession'] ? 1 : 0,
+        'escape_up' => $payload['escapeUp'] ? 1 : 0,
+        'agencia' => $payload['agency'] ? 1 : 0,
     ]);
 
     $id = (int)$pdo->lastInsertId();
@@ -133,6 +142,9 @@ if ($method === 'PUT') {
              mes = :mes,
              anio = :anio,
              sesiones = :sesiones,
+             nocturna = :nocturna,
+             escape_up = :escape_up,
+             agencia = :agencia,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = :id'
     );
@@ -144,6 +156,9 @@ if ($method === 'PUT') {
         'mes' => $payload['month'],
         'anio' => $payload['year'],
         'sesiones' => $payload['sessions'],
+        'nocturna' => $payload['nightSession'] ? 1 : 0,
+        'escape_up' => $payload['escapeUp'] ? 1 : 0,
+        'agencia' => $payload['agency'] ? 1 : 0,
     ]);
 
     $record = fetch_record($pdo, $id);

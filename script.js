@@ -6,7 +6,7 @@ const LOCAL_AUTH_SESSION_KEY = "registroescapes.auth.local.ok.v1";
 const LOCAL_RECORDS_KEY = "registroescapes.records.local.v1";
 const LOCAL_PASSWORD_HASH = "9d52ba92196b776a74185722f763a61a3be138d67239c1272e1e86fe4ed0edf9";
 const USE_BACKEND = !window.location.hostname.endsWith("github.io");
-const CATEGORY_PRICES = Object.freeze({
+const CATEGORY_PRICES_BASE = Object.freeze({
   "2a5p": 85,
   "6p": 100,
   "7p": 120,
@@ -14,6 +14,13 @@ const CATEGORY_PRICES = Object.freeze({
   "7a12(filo)": 120,
   guiado: 120,
   merienda: 170,
+});
+const CATEGORY_PRICES_AGENCY = Object.freeze({
+  "2a5p": 70,
+  "6p": 82,
+  "7p": 99,
+  "2a6(filo)": 62,
+  "7a12(filo)": 99,
 });
 
 const MONTHS = [
@@ -61,6 +68,9 @@ const els = {
   anio: document.getElementById("anio"),
   categoria: document.getElementById("categoria"),
   sesiones: document.getElementById("sesiones"),
+  checkNocturna: document.getElementById("check-nocturna"),
+  checkEscapeUp: document.getElementById("check-escapeup"),
+  checkAgencia: document.getElementById("check-agencia"),
 
   filtroRegistroMes: document.getElementById("filtro-registro-mes"),
   filtroRegistroAnio: document.getElementById("filtro-registro-anio"),
@@ -258,6 +268,9 @@ async function handleSubmit(e) {
     year: Number(els.anio.value),
     category: els.categoria.value,
     sessions: Number(els.sesiones.value),
+    nightSession: els.checkNocturna.checked,
+    escapeUp: els.checkEscapeUp.checked,
+    agency: els.checkAgencia.checked,
   };
 
   try {
@@ -268,6 +281,9 @@ async function handleSubmit(e) {
     } else {
       await apiCreateRecord(payload);
       els.sesiones.value = "";
+      els.checkNocturna.checked = false;
+      els.checkEscapeUp.checked = false;
+      els.checkAgencia.checked = false;
       showToast("Registro añadido correctamente");
     }
 
@@ -308,6 +324,9 @@ async function handleRegistroAction(e) {
     els.anio.value = String(record.year);
     els.categoria.value = record.category;
     els.sesiones.value = String(record.sessions);
+    els.checkNocturna.checked = record.nightSession === true;
+    els.checkEscapeUp.checked = record.escapeUp === true;
+    els.checkAgencia.checked = record.agency === true;
 
     state.editingId = id;
     setSubmitLabel("Actualizar registro");
@@ -341,6 +360,9 @@ function normalizeRecord(r) {
     month: Number(r.mes ?? r.month ?? 0),
     year: Number(r.anio ?? r.year ?? 0),
     sessions: Number(r.sesiones ?? r.sessions ?? 0),
+    nightSession: toBoolFlag(r.nocturna ?? r.nightSession ?? false),
+    escapeUp: toBoolFlag(r.escape_up ?? r.escapeUp ?? false),
+    agency: toBoolFlag(r.agencia ?? r.agency ?? false),
     createdAt: String(r.created_at ?? r.createdAt ?? new Date().toISOString()),
   };
 }
@@ -454,6 +476,9 @@ function localCreateRecord(payload) {
     mes: payload.month,
     anio: payload.year,
     sesiones: payload.sessions,
+    nocturna: payload.nightSession ? 1 : 0,
+    escape_up: payload.escapeUp ? 1 : 0,
+    agencia: payload.agency ? 1 : 0,
     created_at: new Date().toISOString(),
   });
   localSaveRecords(records);
@@ -470,6 +495,9 @@ function localUpdateRecord(id, payload) {
           mes: payload.month,
           anio: payload.year,
           sesiones: payload.sessions,
+          nocturna: payload.nightSession ? 1 : 0,
+          escape_up: payload.escapeUp ? 1 : 0,
+          agencia: payload.agency ? 1 : 0,
         }
       : r
   );
@@ -624,7 +652,7 @@ function renderRegistroList() {
         <td>${formatRecordPeriod(r)}</td>
         <td><span class="room-tag ${roomClassName(r.room)}">${displayRoomName(r.room)}</span></td>
         <td>${r.category}</td>
-        <td>${formatCurrency(categoryPrice(r.category))} / sesión</td>
+        <td>${formatCurrency(appliedUnitPrice(r))} / sesión${toBoolFlag(r.escapeUp) ? " (-12%)" : ""}</td>
         <td>${r.sessions}</td>
         <td>${formatCurrency(recordBilling(r))}</td>
         <td>
@@ -912,12 +940,38 @@ function normalizeCategory(category) {
     .replace(/\s+/g, "");
 }
 
-function categoryPrice(category) {
-  return CATEGORY_PRICES[normalizeCategory(category)] || 0;
+function toBoolFlag(value) {
+  return value === true || value === 1 || value === "1";
+}
+
+function categoryPrice(category, isAgency) {
+  const normalized = normalizeCategory(category);
+  if (isAgency && CATEGORY_PRICES_AGENCY[normalized] != null) {
+    return CATEGORY_PRICES_AGENCY[normalized];
+  }
+  return CATEGORY_PRICES_BASE[normalized] || 0;
+}
+
+function appliedUnitPrice(record) {
+  const agency = toBoolFlag(record.agency);
+  const nightSession = toBoolFlag(record.nightSession);
+  let unit = categoryPrice(record.category, agency);
+  if (nightSession) {
+    unit += 20;
+  }
+  return unit;
 }
 
 function recordBilling(record) {
-  return Number(record.sessions) * categoryPrice(record.category);
+  const sessions = Number(record.sessions);
+  const unit = appliedUnitPrice(record);
+  const escapeUp = toBoolFlag(record.escapeUp);
+
+  let total = sessions * unit;
+  if (escapeUp) {
+    total *= 0.88;
+  }
+  return Number(total.toFixed(2));
 }
 
 function formatCurrency(amount) {

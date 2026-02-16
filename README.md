@@ -16,6 +16,17 @@ App web para registrar sesiones de salas de escape.
 5. Comprueba que responde la API:
    - `https://registroescapes.yurmuvi.com/api/session.php` (debe responder JSON)
 
+## Migración (nuevos checks de registro)
+
+Si ya tenías creada la tabla `registros_sesiones`, ejecuta este SQL una sola vez:
+
+```sql
+ALTER TABLE registros_sesiones
+  ADD COLUMN nocturna TINYINT(1) NOT NULL DEFAULT 0 AFTER sesiones,
+  ADD COLUMN escape_up TINYINT(1) NOT NULL DEFAULT 0 AFTER nocturna,
+  ADD COLUMN agencia TINYINT(1) NOT NULL DEFAULT 0 AFTER escape_up;
+```
+
 ## API disponible
 
 - `POST /api/login.php` -> inicia sesión de acceso
