@@ -66,15 +66,42 @@ function validate_payload(array $data): array
 
 function fetch_record(PDO $pdo, int $id): ?array
 {
+    $withModifiers = has_modifier_columns($pdo);
+    $select = $withModifiers
+        ? 'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
+           FROM registros_sesiones
+           WHERE id = :id'
+        : 'SELECT id, sala, categoria, mes, anio, sesiones, created_at, updated_at
+           FROM registros_sesiones
+           WHERE id = :id';
+
     $stmt = $pdo->prepare(
-        'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
-         FROM registros_sesiones
-         WHERE id = :id'
+        $select
     );
     $stmt->execute(['id' => $id]);
     $row = $stmt->fetch();
 
     return $row !== false ? $row : null;
+}
+
+function has_modifier_columns(PDO $pdo): bool
+{
+    static $checked = false;
+    static $result = false;
+
+    if ($checked) {
+        return $result;
+    }
+
+    $checked = true;
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM registros_sesiones LIKE 'nocturna'");
+        $result = $stmt->fetch() !== false;
+    } catch (Throwable $e) {
+        $result = false;
+    }
+
+    return $result;
 }
 
 require_auth();
@@ -89,11 +116,15 @@ try {
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
-    $stmt = $pdo->query(
-        'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
-         FROM registros_sesiones
-         ORDER BY created_at DESC, id DESC'
-    );
+    $withModifiers = has_modifier_columns($pdo);
+    $sql = $withModifiers
+        ? 'SELECT id, sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia, created_at, updated_at
+           FROM registros_sesiones
+           ORDER BY created_at DESC, id DESC'
+        : 'SELECT id, sala, categoria, mes, anio, sesiones, created_at, updated_at
+           FROM registros_sesiones
+           ORDER BY created_at DESC, id DESC';
+    $stmt = $pdo->query($sql);
 
     respond([
         'ok' => true,
@@ -104,21 +135,36 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $payload = validate_payload(read_json_body());
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia)
-         VALUES (:sala, :categoria, :mes, :anio, :sesiones, :nocturna, :escape_up, :agencia)'
-    );
+    $withModifiers = has_modifier_columns($pdo);
+    if ($withModifiers) {
+        $stmt = $pdo->prepare(
+            'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones, nocturna, escape_up, agencia)
+             VALUES (:sala, :categoria, :mes, :anio, :sesiones, :nocturna, :escape_up, :agencia)'
+        );
 
-    $stmt->execute([
-        'sala' => $payload['room'],
-        'categoria' => $payload['category'],
-        'mes' => $payload['month'],
-        'anio' => $payload['year'],
-        'sesiones' => $payload['sessions'],
-        'nocturna' => $payload['nightSession'] ? 1 : 0,
-        'escape_up' => $payload['escapeUp'] ? 1 : 0,
-        'agencia' => $payload['agency'] ? 1 : 0,
-    ]);
+        $stmt->execute([
+            'sala' => $payload['room'],
+            'categoria' => $payload['category'],
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'sesiones' => $payload['sessions'],
+            'nocturna' => $payload['nightSession'] ? 1 : 0,
+            'escape_up' => $payload['escapeUp'] ? 1 : 0,
+            'agencia' => $payload['agency'] ? 1 : 0,
+        ]);
+    } else {
+        $stmt = $pdo->prepare(
+            'INSERT INTO registros_sesiones (sala, categoria, mes, anio, sesiones)
+             VALUES (:sala, :categoria, :mes, :anio, :sesiones)'
+        );
+        $stmt->execute([
+            'sala' => $payload['room'],
+            'categoria' => $payload['category'],
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'sesiones' => $payload['sessions'],
+        ]);
+    }
 
     $id = (int)$pdo->lastInsertId();
     $record = fetch_record($pdo, $id);
@@ -135,31 +181,53 @@ if ($method === 'PUT') {
 
     $payload = validate_payload($data);
 
-    $stmt = $pdo->prepare(
-        'UPDATE registros_sesiones
-         SET sala = :sala,
-             categoria = :categoria,
-             mes = :mes,
-             anio = :anio,
-             sesiones = :sesiones,
-             nocturna = :nocturna,
-             escape_up = :escape_up,
-             agencia = :agencia,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = :id'
-    );
+    $withModifiers = has_modifier_columns($pdo);
+    if ($withModifiers) {
+        $stmt = $pdo->prepare(
+            'UPDATE registros_sesiones
+             SET sala = :sala,
+                 categoria = :categoria,
+                 mes = :mes,
+                 anio = :anio,
+                 sesiones = :sesiones,
+                 nocturna = :nocturna,
+                 escape_up = :escape_up,
+                 agencia = :agencia,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
 
-    $stmt->execute([
-        'id' => $id,
-        'sala' => $payload['room'],
-        'categoria' => $payload['category'],
-        'mes' => $payload['month'],
-        'anio' => $payload['year'],
-        'sesiones' => $payload['sessions'],
-        'nocturna' => $payload['nightSession'] ? 1 : 0,
-        'escape_up' => $payload['escapeUp'] ? 1 : 0,
-        'agencia' => $payload['agency'] ? 1 : 0,
-    ]);
+        $stmt->execute([
+            'id' => $id,
+            'sala' => $payload['room'],
+            'categoria' => $payload['category'],
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'sesiones' => $payload['sessions'],
+            'nocturna' => $payload['nightSession'] ? 1 : 0,
+            'escape_up' => $payload['escapeUp'] ? 1 : 0,
+            'agencia' => $payload['agency'] ? 1 : 0,
+        ]);
+    } else {
+        $stmt = $pdo->prepare(
+            'UPDATE registros_sesiones
+             SET sala = :sala,
+                 categoria = :categoria,
+                 mes = :mes,
+                 anio = :anio,
+                 sesiones = :sesiones,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            'id' => $id,
+            'sala' => $payload['room'],
+            'categoria' => $payload['category'],
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'sesiones' => $payload['sessions'],
+        ]);
+    }
 
     $record = fetch_record($pdo, $id);
     if ($record === null) {
