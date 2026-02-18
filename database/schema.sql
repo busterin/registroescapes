@@ -16,6 +16,18 @@ CREATE TABLE IF NOT EXISTS registros_sesiones (
   KEY idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS gastos_registro (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  mes TINYINT UNSIGNED NOT NULL,
+  anio SMALLINT UNSIGNED NOT NULL,
+  importe DECIMAL(10,2) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gastos_periodo (anio, mes),
+  KEY idx_gastos_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS usuarios_admin (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   username VARCHAR(60) NOT NULL,

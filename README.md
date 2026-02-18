@@ -27,6 +27,22 @@ ALTER TABLE registros_sesiones
   ADD COLUMN agencia TINYINT(1) NOT NULL DEFAULT 0 AFTER escape_up;
 ```
 
+Para habilitar el formulario de gastos, crea también esta tabla:
+
+```sql
+CREATE TABLE IF NOT EXISTS gastos_registro (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  mes TINYINT UNSIGNED NOT NULL,
+  anio SMALLINT UNSIGNED NOT NULL,
+  importe DECIMAL(10,2) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gastos_periodo (anio, mes),
+  KEY idx_gastos_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
 ## API disponible
 
 - `POST /api/login.php` -> inicia sesión de acceso

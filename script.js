@@ -44,7 +44,8 @@ const currentYear = now.getFullYear();
 
 const state = {
   records: [],
-  editingId: null,
+  editingSessionId: null,
+  editingExpenseId: null,
   isBooted: false,
   toastTimer: null,
 };
@@ -71,6 +72,10 @@ const els = {
   checkNocturna: document.getElementById("check-nocturna"),
   checkEscapeUp: document.getElementById("check-escapeup"),
   checkAgencia: document.getElementById("check-agencia"),
+  gastosForm: document.getElementById("gastos-form"),
+  gastoImporte: document.getElementById("gasto-importe"),
+  gastoMes: document.getElementById("gasto-mes"),
+  gastoAnio: document.getElementById("gasto-anio"),
 
   filtroRegistroMes: document.getElementById("filtro-registro-mes"),
   filtroRegistroAnio: document.getElementById("filtro-registro-anio"),
@@ -122,6 +127,7 @@ async function bootApp() {
   bindTabs();
   fillMonthSelects([
     els.mes,
+    els.gastoMes,
     els.filtroRegistroMes,
     els.sesionesMes,
     els.compAMes,
@@ -130,7 +136,8 @@ async function bootApp() {
   fillYearSelects();
   setDefaultFilters();
   bindEvents();
-  resetFormMode();
+  resetSessionFormMode();
+  resetExpenseFormMode();
   await refreshRecords();
 }
 
@@ -226,6 +233,7 @@ function bindTabs() {
 
 function bindEvents() {
   els.form.addEventListener("submit", handleSubmit);
+  els.gastosForm.addEventListener("submit", handleExpenseSubmit);
   els.registrosBody.addEventListener("click", handleRegistroAction);
 
   [els.filtroRegistroMes, els.filtroRegistroAnio].forEach((el) => {
@@ -274,12 +282,12 @@ async function handleSubmit(e) {
   };
 
   try {
-    if (state.editingId) {
-      await apiUpdateRecord(state.editingId, payload);
-      resetFormMode();
+    if (state.editingSessionId) {
+      await apiUpdateRecord("session", state.editingSessionId, payload);
+      resetSessionFormMode();
       showToast("Registro actualizado correctamente");
     } else {
-      await apiCreateRecord(payload);
+      await apiCreateRecord({ type: "session", ...payload });
       els.sesiones.value = "";
       els.checkNocturna.checked = false;
       els.checkEscapeUp.checked = false;
@@ -293,20 +301,48 @@ async function handleSubmit(e) {
   }
 }
 
+async function handleExpenseSubmit(e) {
+  e.preventDefault();
+
+  const payload = {
+    month: Number(els.gastoMes.value),
+    year: Number(els.gastoAnio.value),
+    amount: Number(els.gastoImporte.value),
+  };
+
+  try {
+    if (state.editingExpenseId) {
+      await apiUpdateRecord("expense", state.editingExpenseId, payload);
+      resetExpenseFormMode();
+      showToast("Gasto actualizado correctamente");
+    } else {
+      await apiCreateRecord({ type: "expense", ...payload });
+      els.gastoImporte.value = "";
+      showToast("Gasto añadido correctamente");
+    }
+    await refreshRecords();
+  } catch (error) {
+    notifyApiError(error);
+  }
+}
+
 async function handleRegistroAction(e) {
   const button = e.target.closest("button[data-action]");
   if (!button) return;
 
   const { action, id } = button.dataset;
   if (!id) return;
+  const record = state.records.find((r) => r.id === id);
+  if (!record) return;
 
   if (action === "delete") {
     const ok = window.confirm("¿Eliminar este registro?");
     if (!ok) return;
 
     try {
-      await apiDeleteRecord(id);
-      if (state.editingId === id) resetFormMode();
+      await apiDeleteRecord(record.kind || "session", id);
+      if (state.editingSessionId === id) resetSessionFormMode();
+      if (state.editingExpenseId === id) resetExpenseFormMode();
       await refreshRecords();
       showToast("Registro eliminado");
     } catch (error) {
@@ -316,8 +352,16 @@ async function handleRegistroAction(e) {
   }
 
   if (action === "edit") {
-    const record = state.records.find((r) => r.id === id);
-    if (!record) return;
+    if (record.kind === "expense") {
+      els.gastoImporte.value = String(record.amount || 0);
+      els.gastoMes.value = String(record.month);
+      els.gastoAnio.value = String(record.year);
+      resetSessionFormMode();
+      state.editingExpenseId = id;
+      setExpenseSubmitLabel("Actualizar gasto");
+      document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
 
     els.sala.value = record.room;
     els.mes.value = String(record.month);
@@ -328,21 +372,32 @@ async function handleRegistroAction(e) {
     els.checkEscapeUp.checked = record.escapeUp === true;
     els.checkAgencia.checked = record.agency === true;
 
-    state.editingId = id;
-    setSubmitLabel("Actualizar registro");
+    resetExpenseFormMode();
+    state.editingSessionId = id;
+    setSessionSubmitLabel("Actualizar registro");
 
     document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
-function setSubmitLabel(text) {
+function setSessionSubmitLabel(text) {
   const submitButton = els.form.querySelector('button[type="submit"]');
   if (submitButton) submitButton.textContent = text;
 }
 
-function resetFormMode() {
-  state.editingId = null;
-  setSubmitLabel("Guardar registro");
+function setExpenseSubmitLabel(text) {
+  const submitButton = els.gastosForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.textContent = text;
+}
+
+function resetSessionFormMode() {
+  state.editingSessionId = null;
+  setSessionSubmitLabel("Guardar registro");
+}
+
+function resetExpenseFormMode() {
+  state.editingExpenseId = null;
+  setExpenseSubmitLabel("Confirmar gasto");
 }
 
 async function refreshRecords() {
@@ -353,13 +408,16 @@ async function refreshRecords() {
 }
 
 function normalizeRecord(r) {
+  const kind = String(r.kind ?? "session");
   return {
     id: String(r.id),
+    kind,
     room: String(r.sala ?? r.room ?? ""),
     category: String(r.categoria ?? r.category ?? ""),
     month: Number(r.mes ?? r.month ?? 0),
     year: Number(r.anio ?? r.year ?? 0),
     sessions: Number(r.sesiones ?? r.sessions ?? 0),
+    amount: Number(r.importe ?? r.amount ?? 0),
     nightSession: toBoolFlag(r.nocturna ?? r.nightSession ?? false),
     escapeUp: toBoolFlag(r.escape_up ?? r.escapeUp ?? false),
     agency: toBoolFlag(r.agencia ?? r.agency ?? false),
@@ -383,20 +441,20 @@ async function apiCreateRecord(payload) {
   await apiRequest("POST", payload);
 }
 
-async function apiUpdateRecord(id, payload) {
+async function apiUpdateRecord(type, id, payload) {
   if (!USE_BACKEND) {
-    localUpdateRecord(id, payload);
+    localUpdateRecord(type, id, payload);
     return;
   }
-  await apiRequest("PUT", { id: Number(id), ...payload });
+  await apiRequest("PUT", { type, id: Number(id), ...payload });
 }
 
-async function apiDeleteRecord(id) {
+async function apiDeleteRecord(type, id) {
   if (!USE_BACKEND) {
-    localDeleteRecord(id);
+    localDeleteRecord(type, id);
     return;
   }
-  await apiRequest("DELETE", { id: Number(id) });
+  await apiRequest("DELETE", { type, id: Number(id) });
 }
 
 async function apiLogin(password, remember) {
@@ -469,8 +527,22 @@ function localSaveRecords(records) {
 
 function localCreateRecord(payload) {
   const records = localListRecords();
+  if (payload.type === "expense") {
+    records.unshift({
+      id: createLocalId(),
+      kind: "expense",
+      mes: payload.month,
+      anio: payload.year,
+      importe: payload.amount,
+      created_at: new Date().toISOString(),
+    });
+    localSaveRecords(records);
+    return;
+  }
+
   records.unshift({
     id: createLocalId(),
+    kind: "session",
     sala: payload.room,
     categoria: payload.category,
     mes: payload.month,
@@ -484,27 +556,35 @@ function localCreateRecord(payload) {
   localSaveRecords(records);
 }
 
-function localUpdateRecord(id, payload) {
+function localUpdateRecord(type, id, payload) {
   const records = localListRecords();
   const updated = records.map((r) =>
     String(r.id) === String(id)
       ? {
           ...r,
-          sala: payload.room,
-          categoria: payload.category,
-          mes: payload.month,
-          anio: payload.year,
-          sesiones: payload.sessions,
-          nocturna: payload.nightSession ? 1 : 0,
-          escape_up: payload.escapeUp ? 1 : 0,
-          agencia: payload.agency ? 1 : 0,
+          ...(type === "expense"
+            ? {
+                mes: payload.month,
+                anio: payload.year,
+                importe: payload.amount,
+              }
+            : {
+                sala: payload.room,
+                categoria: payload.category,
+                mes: payload.month,
+                anio: payload.year,
+                sesiones: payload.sessions,
+                nocturna: payload.nightSession ? 1 : 0,
+                escape_up: payload.escapeUp ? 1 : 0,
+                agencia: payload.agency ? 1 : 0,
+              }),
         }
       : r
   );
   localSaveRecords(updated);
 }
 
-function localDeleteRecord(id) {
+function localDeleteRecord(_type, id) {
   const records = localListRecords().filter((r) => String(r.id) !== String(id));
   localSaveRecords(records);
 }
@@ -551,6 +631,7 @@ function fillYearSelects() {
   const yearOptions = getYearOptions();
   const selects = [
     els.anio,
+    els.gastoAnio,
     els.filtroRegistroAnio,
     els.sesionesAnio,
     els.compAAnio,
@@ -567,6 +648,7 @@ function fillYearSelects() {
 function refreshYearSelectsWithData() {
   const previous = {
     anio: els.anio.value,
+    gastoAnio: els.gastoAnio.value,
     filtroRegistroAnio: els.filtroRegistroAnio.value,
     sesionesAnio: els.sesionesAnio.value,
     compAAnio: els.compAAnio.value,
@@ -583,6 +665,8 @@ function refreshYearSelectsWithData() {
 function setDefaultFilters() {
   els.mes.value = String(currentMonth);
   els.anio.value = String(currentYear);
+  els.gastoMes.value = String(currentMonth);
+  els.gastoAnio.value = String(currentYear);
 
   els.filtroRegistroMes.value = String(currentMonth);
   els.filtroRegistroAnio.value = String(currentYear);
@@ -650,11 +734,11 @@ function renderRegistroList() {
       (r) => `
       <tr>
         <td>${formatRecordPeriod(r)}</td>
-        <td><span class="room-tag ${roomClassName(r.room)}">${displayRoomName(r.room)}</span></td>
-        <td>${r.category}</td>
-        <td>${formatCurrency(appliedUnitPrice(r))} / sesión${toBoolFlag(r.escapeUp) ? " (-12%)" : ""}</td>
-        <td>${r.sessions}</td>
-        <td>${formatCurrency(recordBilling(r))}</td>
+        <td>${renderRoomCell(r)}</td>
+        <td>${renderCategoryCell(r)}</td>
+        <td>${renderUnitPriceCell(r)}</td>
+        <td>${renderSessionsCell(r)}</td>
+        <td>${renderBillingCell(r)}</td>
         <td>
           <div class="row-actions">
             <button type="button" class="btn-row" data-action="edit" data-id="${r.id}">Editar</button>
@@ -667,11 +751,48 @@ function renderRegistroList() {
 
   els.registrosEmpty.classList.toggle("hidden", rows.length > 0);
   const totalBilling = rows.reduce((acc, r) => acc + recordBilling(r), 0);
+  const totalExpenses = rows.reduce((acc, r) => acc + recordExpense(r), 0);
+  const net = totalBilling - totalExpenses;
   const filterText =
     monthValue === "all"
       ? "todos los registros"
       : `${MONTHS[Number(monthValue) - 1]} ${year}`;
-  els.registrosTotal.textContent = `Facturación total (${filterText}): ${formatCurrency(totalBilling)}`;
+  els.registrosTotal.textContent = `Facturación total (${filterText}): ${formatCurrency(totalBilling)} | Gastos: ${formatCurrency(totalExpenses)} | Beneficio real: ${formatCurrency(net)}`;
+}
+
+function renderRoomCell(record) {
+  if (record.kind === "expense") {
+    return "Gasto";
+  }
+  return `<span class="room-tag ${roomClassName(record.room)}">${displayRoomName(record.room)}</span>`;
+}
+
+function renderCategoryCell(record) {
+  if (record.kind === "expense") {
+    return "Registro de gasto";
+  }
+  return record.category;
+}
+
+function renderUnitPriceCell(record) {
+  if (record.kind === "expense") {
+    return "-";
+  }
+  return `${formatCurrency(appliedUnitPrice(record))} / sesión${toBoolFlag(record.escapeUp) ? " (-12%)" : ""}`;
+}
+
+function renderSessionsCell(record) {
+  if (record.kind === "expense") {
+    return "-";
+  }
+  return record.sessions;
+}
+
+function renderBillingCell(record) {
+  if (record.kind === "expense") {
+    return `-${formatCurrency(recordExpense(record))}`;
+  }
+  return formatCurrency(recordBilling(record));
 }
 
 function roomClassName(room) {
@@ -692,18 +813,22 @@ function renderSesiones() {
   const month = Number(els.sesionesMes.value);
   const year = Number(els.sesionesAnio.value);
   const filtered = filterByPeriod(state.records, mode, month, year);
+  const sessionRows = filtered.filter((r) => r.kind !== "expense");
+  const expenseRows = filtered.filter((r) => r.kind === "expense");
 
-  const totalGlobal = filtered.reduce((acc, r) => acc + Number(r.sessions), 0);
-  const totalBilling = filtered.reduce((acc, r) => acc + recordBilling(r), 0);
+  const totalGlobal = sessionRows.reduce((acc, r) => acc + Number(r.sessions), 0);
+  const totalBilling = sessionRows.reduce((acc, r) => acc + recordBilling(r), 0);
+  const totalExpenses = expenseRows.reduce((acc, r) => acc + recordExpense(r), 0);
+  const netProfit = totalBilling - totalExpenses;
   const periodText =
     mode === "anio" ? `Año ${year}` : `${MONTHS[month - 1]} ${year}`;
 
-  els.totalGlobal.innerHTML = `Total global (${periodText}): ${totalGlobal} sesiones<br>Facturación global: ${formatCurrency(totalBilling)}`;
+  els.totalGlobal.innerHTML = `Total global (${periodText}): ${totalGlobal} sesiones<br>Facturación global: ${formatCurrency(totalBilling)}<br>Gastos: ${formatCurrency(totalExpenses)}<br>Beneficio real: ${formatCurrency(netProfit)}`;
 
-  renderRoomBreakdown(els.sesionesFrankie, filtered, "Frankie");
-  renderRoomBreakdown(els.sesionesMagia, filtered, "Magia");
-  renderRoomBreakdown(els.sesionesFilosofal, filtered, "Filosofal");
-  renderRoomBreakdown(els.sesionesVampiro, filtered, "El regreso del vampiro");
+  renderRoomBreakdown(els.sesionesFrankie, sessionRows, "Frankie");
+  renderRoomBreakdown(els.sesionesMagia, sessionRows, "Magia");
+  renderRoomBreakdown(els.sesionesFilosofal, sessionRows, "Filosofal");
+  renderRoomBreakdown(els.sesionesVampiro, sessionRows, "El regreso del vampiro");
 }
 
 function renderRoomBreakdown(container, records, room) {
@@ -953,6 +1078,9 @@ function categoryPrice(category, isAgency) {
 }
 
 function appliedUnitPrice(record) {
+  if (record.kind === "expense") {
+    return 0;
+  }
   const agency = toBoolFlag(record.agency);
   const nightSession = toBoolFlag(record.nightSession);
   let unit = categoryPrice(record.category, agency);
@@ -963,6 +1091,9 @@ function appliedUnitPrice(record) {
 }
 
 function recordBilling(record) {
+  if (record.kind === "expense") {
+    return 0;
+  }
   const sessions = Number(record.sessions);
   const unit = appliedUnitPrice(record);
   const escapeUp = toBoolFlag(record.escapeUp);
@@ -972,6 +1103,13 @@ function recordBilling(record) {
     total *= 0.88;
   }
   return Number(total.toFixed(2));
+}
+
+function recordExpense(record) {
+  if (record.kind !== "expense") {
+    return 0;
+  }
+  return Number(record.amount) || 0;
 }
 
 function formatCurrency(amount) {

@@ -111,6 +111,28 @@
         </div>
 
         <div class="card">
+          <h2>Registro de gastos</h2>
+          <form id="gastos-form" class="grid-form">
+            <label>
+              Importe gasto (€)
+              <input id="gasto-importe" type="number" min="0" step="0.01" required />
+            </label>
+
+            <label>
+              Mes
+              <select id="gasto-mes" required></select>
+            </label>
+
+            <label>
+              Año
+              <select id="gasto-anio" required></select>
+            </label>
+
+            <button class="btn-primary" type="submit">Confirmar gasto</button>
+          </form>
+        </div>
+
+        <div class="card">
           <div class="card-head">
             <h2>Últimos registros</h2>
             <div class="inline-filters">
