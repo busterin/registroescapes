@@ -337,6 +337,12 @@ td {
   font-weight: 700;
 }
 
+.sesiones-note {
+  margin: -0.45rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .accordion {
   border: 1px solid var(--line);
   border-radius: 10px;
