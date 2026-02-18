@@ -122,9 +122,15 @@ function has_table(PDO $pdo, string $table): bool
     }
 
     try {
-        $stmt = $pdo->prepare('SHOW TABLES LIKE :table');
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) AS total
+             FROM information_schema.tables
+             WHERE table_schema = DATABASE()
+               AND table_name = :table'
+        );
         $stmt->execute(['table' => $table]);
-        $cache[$table] = $stmt->fetch() !== false;
+        $total = (int)($stmt->fetchColumn() ?: 0);
+        $cache[$table] = $total > 0;
     } catch (Throwable $e) {
         $cache[$table] = false;
     }
