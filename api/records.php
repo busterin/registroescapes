@@ -24,7 +24,13 @@ const VALID_CATEGORIES = [
 function detect_type(array $data): string
 {
     $type = strtolower(trim((string)($data['type'] ?? 'session')));
-    return $type === 'expense' ? 'expense' : 'session';
+    if ($type === 'expense') {
+        return 'expense';
+    }
+    if ($type === 'monthly_real') {
+        return 'monthly_real';
+    }
+    return 'session';
 }
 
 function validate_period(array $data): array
@@ -91,6 +97,28 @@ function validate_expense_payload(array $data): array
         'month' => $period['month'],
         'year' => $period['year'],
         'amount' => round((float)$amount, 2),
+    ];
+}
+
+function validate_monthly_real_payload(array $data): array
+{
+    $period = validate_period($data);
+    $billingReal = filter_var($data['billingReal'] ?? null, FILTER_VALIDATE_FLOAT);
+    $profitReal = filter_var($data['profitReal'] ?? null, FILTER_VALIDATE_FLOAT);
+
+    if ($billingReal === false || $billingReal < 0) {
+        respond(['ok' => false, 'error' => 'Facturación real no valida'], 422);
+    }
+
+    if ($profitReal === false) {
+        respond(['ok' => false, 'error' => 'Beneficio real no valido'], 422);
+    }
+
+    return [
+        'month' => $period['month'],
+        'year' => $period['year'],
+        'billingReal' => round((float)$billingReal, 2),
+        'profitReal' => round((float)$profitReal, 2),
     ];
 }
 
@@ -183,6 +211,28 @@ function fetch_expense_record(PDO $pdo, int $id): ?array
     return $row;
 }
 
+function fetch_monthly_real_record(PDO $pdo, int $id): ?array
+{
+    if (!has_table($pdo, 'facturacion_real_mensual')) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, mes, anio, facturacion_real, beneficio_real, created_at, updated_at
+         FROM facturacion_real_mensual
+         WHERE id = :id'
+    );
+    $stmt->execute(['id' => $id]);
+    $row = $stmt->fetch();
+
+    if ($row === false) {
+        return null;
+    }
+
+    $row['kind'] = 'monthly_real';
+    return $row;
+}
+
 function list_all_records(PDO $pdo): array
 {
     $records = [];
@@ -207,6 +257,17 @@ function list_all_records(PDO $pdo): array
         );
         foreach ($stmtExpense->fetchAll() as $row) {
             $row['kind'] = 'expense';
+            $records[] = $row;
+        }
+    }
+
+    if (has_table($pdo, 'facturacion_real_mensual')) {
+        $stmtReal = $pdo->query(
+            'SELECT id, mes, anio, facturacion_real, beneficio_real, created_at, updated_at
+             FROM facturacion_real_mensual'
+        );
+        foreach ($stmtReal->fetchAll() as $row) {
+            $row['kind'] = 'monthly_real';
             $records[] = $row;
         }
     }
@@ -263,6 +324,28 @@ if ($method === 'POST') {
 
         $id = (int)$pdo->lastInsertId();
         $record = fetch_expense_record($pdo, $id);
+        respond(['ok' => true, 'record' => $record], 201);
+    }
+
+    if ($type === 'monthly_real') {
+        if (!has_table($pdo, 'facturacion_real_mensual')) {
+            respond(['ok' => false, 'error' => 'Falta la tabla facturacion_real_mensual. Ejecuta la migracion SQL.'], 500);
+        }
+
+        $payload = validate_monthly_real_payload($data);
+        $stmt = $pdo->prepare(
+            'INSERT INTO facturacion_real_mensual (mes, anio, facturacion_real, beneficio_real)
+             VALUES (:mes, :anio, :facturacion_real, :beneficio_real)'
+        );
+        $stmt->execute([
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'facturacion_real' => $payload['billingReal'],
+            'beneficio_real' => $payload['profitReal'],
+        ]);
+
+        $id = (int)$pdo->lastInsertId();
+        $record = fetch_monthly_real_record($pdo, $id);
         respond(['ok' => true, 'record' => $record], 201);
     }
 
@@ -335,6 +418,36 @@ if ($method === 'PUT') {
         $record = fetch_expense_record($pdo, $id);
         if ($record === null) {
             respond(['ok' => false, 'error' => 'Gasto no encontrado'], 404);
+        }
+        respond(['ok' => true, 'record' => $record]);
+    }
+
+    if ($type === 'monthly_real') {
+        if (!has_table($pdo, 'facturacion_real_mensual')) {
+            respond(['ok' => false, 'error' => 'Falta la tabla facturacion_real_mensual. Ejecuta la migracion SQL.'], 500);
+        }
+
+        $payload = validate_monthly_real_payload($data);
+        $stmt = $pdo->prepare(
+            'UPDATE facturacion_real_mensual
+             SET mes = :mes,
+                 anio = :anio,
+                 facturacion_real = :facturacion_real,
+                 beneficio_real = :beneficio_real,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            'id' => $id,
+            'mes' => $payload['month'],
+            'anio' => $payload['year'],
+            'facturacion_real' => $payload['billingReal'],
+            'beneficio_real' => $payload['profitReal'],
+        ]);
+
+        $record = fetch_monthly_real_record($pdo, $id);
+        if ($record === null) {
+            respond(['ok' => false, 'error' => 'Registro de facturación real no encontrado'], 404);
         }
         respond(['ok' => true, 'record' => $record]);
     }
@@ -413,6 +526,20 @@ if ($method === 'DELETE') {
         $stmt->execute(['id' => $id]);
         if ($stmt->rowCount() < 1) {
             respond(['ok' => false, 'error' => 'Gasto no encontrado'], 404);
+        }
+
+        respond(['ok' => true]);
+    }
+
+    if ($type === 'monthly_real') {
+        if (!has_table($pdo, 'facturacion_real_mensual')) {
+            respond(['ok' => false, 'error' => 'Registro de facturación real no encontrado'], 404);
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM facturacion_real_mensual WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        if ($stmt->rowCount() < 1) {
+            respond(['ok' => false, 'error' => 'Registro de facturación real no encontrado'], 404);
         }
 
         respond(['ok' => true]);

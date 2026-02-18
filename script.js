@@ -46,6 +46,7 @@ const state = {
   records: [],
   editingSessionId: null,
   editingExpenseId: null,
+  editingRealId: null,
   isBooted: false,
   toastTimer: null,
 };
@@ -76,6 +77,11 @@ const els = {
   gastoImporte: document.getElementById("gasto-importe"),
   gastoMes: document.getElementById("gasto-mes"),
   gastoAnio: document.getElementById("gasto-anio"),
+  realForm: document.getElementById("real-form"),
+  realMes: document.getElementById("real-mes"),
+  realAnio: document.getElementById("real-anio"),
+  realFacturacion: document.getElementById("real-facturacion"),
+  realBeneficio: document.getElementById("real-beneficio"),
 
   filtroRegistroMes: document.getElementById("filtro-registro-mes"),
   filtroRegistroAnio: document.getElementById("filtro-registro-anio"),
@@ -87,6 +93,7 @@ const els = {
   sesionesMes: document.getElementById("sesiones-mes"),
   sesionesAnio: document.getElementById("sesiones-anio"),
   totalGlobal: document.getElementById("total-global"),
+  sesionesRealBox: document.getElementById("sesiones-real-box"),
   sesionesFrankie: document.getElementById("sesiones-frankie"),
   sesionesMagia: document.getElementById("sesiones-magia"),
   sesionesFilosofal: document.getElementById("sesiones-filosofal"),
@@ -128,6 +135,7 @@ async function bootApp() {
   fillMonthSelects([
     els.mes,
     els.gastoMes,
+    els.realMes,
     els.filtroRegistroMes,
     els.sesionesMes,
     els.compAMes,
@@ -138,6 +146,7 @@ async function bootApp() {
   bindEvents();
   resetSessionFormMode();
   resetExpenseFormMode();
+  resetRealFormMode();
   await refreshRecords();
 }
 
@@ -234,6 +243,7 @@ function bindTabs() {
 function bindEvents() {
   els.form.addEventListener("submit", handleSubmit);
   els.gastosForm.addEventListener("submit", handleExpenseSubmit);
+  els.realForm.addEventListener("submit", handleRealSubmit);
   els.registrosBody.addEventListener("click", handleRegistroAction);
 
   [els.filtroRegistroMes, els.filtroRegistroAnio].forEach((el) => {
@@ -326,6 +336,33 @@ async function handleExpenseSubmit(e) {
   }
 }
 
+async function handleRealSubmit(e) {
+  e.preventDefault();
+
+  const payload = {
+    month: Number(els.realMes.value),
+    year: Number(els.realAnio.value),
+    billingReal: Number(els.realFacturacion.value),
+    profitReal: Number(els.realBeneficio.value),
+  };
+
+  try {
+    if (state.editingRealId) {
+      await apiUpdateRecord("monthly_real", state.editingRealId, payload);
+      resetRealFormMode();
+      showToast("Facturación real actualizada");
+    } else {
+      await apiCreateRecord({ type: "monthly_real", ...payload });
+      els.realFacturacion.value = "";
+      els.realBeneficio.value = "";
+      showToast("Facturación real añadida");
+    }
+    await refreshRecords();
+  } catch (error) {
+    notifyApiError(error);
+  }
+}
+
 async function handleRegistroAction(e) {
   const button = e.target.closest("button[data-action]");
   if (!button) return;
@@ -341,8 +378,9 @@ async function handleRegistroAction(e) {
 
     try {
       await apiDeleteRecord(record.kind || "session", record.id);
-      if (state.editingSessionId === record.id) resetSessionFormMode();
-      if (state.editingExpenseId === record.id) resetExpenseFormMode();
+      if (record.kind === "session" && state.editingSessionId === record.id) resetSessionFormMode();
+      if (record.kind === "expense" && state.editingExpenseId === record.id) resetExpenseFormMode();
+      if (record.kind === "monthly_real" && state.editingRealId === record.id) resetRealFormMode();
       await refreshRecords();
       showToast("Registro eliminado");
     } catch (error) {
@@ -357,8 +395,22 @@ async function handleRegistroAction(e) {
       els.gastoMes.value = String(record.month);
       els.gastoAnio.value = String(record.year);
       resetSessionFormMode();
+      resetRealFormMode();
       state.editingExpenseId = record.id;
       setExpenseSubmitLabel("Actualizar gasto");
+      document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (record.kind === "monthly_real") {
+      els.realMes.value = String(record.month);
+      els.realAnio.value = String(record.year);
+      els.realFacturacion.value = String(record.billingReal || 0);
+      els.realBeneficio.value = String(record.profitReal || 0);
+      resetSessionFormMode();
+      resetExpenseFormMode();
+      state.editingRealId = record.id;
+      setRealSubmitLabel("Actualizar facturación real");
       document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
@@ -373,6 +425,7 @@ async function handleRegistroAction(e) {
     els.checkAgencia.checked = record.agency === true;
 
     resetExpenseFormMode();
+    resetRealFormMode();
     state.editingSessionId = record.id;
     setSessionSubmitLabel("Actualizar registro");
 
@@ -390,6 +443,11 @@ function setExpenseSubmitLabel(text) {
   if (submitButton) submitButton.textContent = text;
 }
 
+function setRealSubmitLabel(text) {
+  const submitButton = els.realForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.textContent = text;
+}
+
 function resetSessionFormMode() {
   state.editingSessionId = null;
   setSessionSubmitLabel("Guardar registro");
@@ -398,6 +456,11 @@ function resetSessionFormMode() {
 function resetExpenseFormMode() {
   state.editingExpenseId = null;
   setExpenseSubmitLabel("Confirmar gasto");
+}
+
+function resetRealFormMode() {
+  state.editingRealId = null;
+  setRealSubmitLabel("Confirmar facturación real");
 }
 
 async function refreshRecords() {
@@ -420,6 +483,8 @@ function normalizeRecord(r) {
     year: Number(r.anio ?? r.year ?? 0),
     sessions: Number(r.sesiones ?? r.sessions ?? 0),
     amount: Number(r.importe ?? r.amount ?? 0),
+    billingReal: Number(r.facturacion_real ?? r.billingReal ?? 0),
+    profitReal: Number(r.beneficio_real ?? r.profitReal ?? 0),
     nightSession: toBoolFlag(r.nocturna ?? r.nightSession ?? false),
     escapeUp: toBoolFlag(r.escape_up ?? r.escapeUp ?? false),
     agency: toBoolFlag(r.agencia ?? r.agency ?? false),
@@ -529,6 +594,20 @@ function localSaveRecords(records) {
 
 function localCreateRecord(payload) {
   const records = localListRecords();
+  if (payload.type === "monthly_real") {
+    records.unshift({
+      id: createLocalId(),
+      kind: "monthly_real",
+      mes: payload.month,
+      anio: payload.year,
+      facturacion_real: payload.billingReal,
+      beneficio_real: payload.profitReal,
+      created_at: new Date().toISOString(),
+    });
+    localSaveRecords(records);
+    return;
+  }
+
   if (payload.type === "expense") {
     records.unshift({
       id: createLocalId(),
@@ -570,6 +649,13 @@ function localUpdateRecord(type, id, payload) {
                 anio: payload.year,
                 importe: payload.amount,
               }
+            : type === "monthly_real"
+              ? {
+                  mes: payload.month,
+                  anio: payload.year,
+                  facturacion_real: payload.billingReal,
+                  beneficio_real: payload.profitReal,
+                }
             : {
                 sala: payload.room,
                 categoria: payload.category,
@@ -634,6 +720,7 @@ function fillYearSelects() {
   const selects = [
     els.anio,
     els.gastoAnio,
+    els.realAnio,
     els.filtroRegistroAnio,
     els.sesionesAnio,
     els.compAAnio,
@@ -651,6 +738,7 @@ function refreshYearSelectsWithData() {
   const previous = {
     anio: els.anio.value,
     gastoAnio: els.gastoAnio.value,
+    realAnio: els.realAnio.value,
     filtroRegistroAnio: els.filtroRegistroAnio.value,
     sesionesAnio: els.sesionesAnio.value,
     compAAnio: els.compAAnio.value,
@@ -669,6 +757,8 @@ function setDefaultFilters() {
   els.anio.value = String(currentYear);
   els.gastoMes.value = String(currentMonth);
   els.gastoAnio.value = String(currentYear);
+  els.realMes.value = String(currentMonth);
+  els.realAnio.value = String(currentYear);
 
   els.filtroRegistroMes.value = String(currentMonth);
   els.filtroRegistroAnio.value = String(currentYear);
@@ -766,6 +856,9 @@ function renderRoomCell(record) {
   if (record.kind === "expense") {
     return "Gasto";
   }
+  if (record.kind === "monthly_real") {
+    return "Facturación real";
+  }
   return `<span class="room-tag ${roomClassName(record.room)}">${displayRoomName(record.room)}</span>`;
 }
 
@@ -773,18 +866,21 @@ function renderCategoryCell(record) {
   if (record.kind === "expense") {
     return "Registro de gasto";
   }
+  if (record.kind === "monthly_real") {
+    return "Registro mensual real";
+  }
   return record.category;
 }
 
 function renderUnitPriceCell(record) {
-  if (record.kind === "expense") {
+  if (record.kind !== "session") {
     return "-";
   }
   return `${formatCurrency(appliedUnitPrice(record))} / sesión${toBoolFlag(record.escapeUp) ? " (-12%)" : ""}`;
 }
 
 function renderSessionsCell(record) {
-  if (record.kind === "expense") {
+  if (record.kind !== "session") {
     return "-";
   }
   return record.sessions;
@@ -793,6 +889,9 @@ function renderSessionsCell(record) {
 function renderBillingCell(record) {
   if (record.kind === "expense") {
     return `-${formatCurrency(recordExpense(record))}`;
+  }
+  if (record.kind === "monthly_real") {
+    return `Facturación: ${formatCurrency(record.billingReal)} | Beneficio: ${formatCurrency(record.profitReal)}`;
   }
   return formatCurrency(recordBilling(record));
 }
@@ -815,17 +914,24 @@ function renderSesiones() {
   const month = Number(els.sesionesMes.value);
   const year = Number(els.sesionesAnio.value);
   const filtered = filterByPeriod(state.records, mode, month, year);
-  const sessionRows = filtered.filter((r) => r.kind !== "expense");
+  const sessionRows = filtered.filter((r) => r.kind === "session");
   const expenseRows = filtered.filter((r) => r.kind === "expense");
+  const realRows = filtered.filter((r) => r.kind === "monthly_real");
 
   const totalGlobal = sessionRows.reduce((acc, r) => acc + Number(r.sessions), 0);
   const totalBilling = sessionRows.reduce((acc, r) => acc + recordBilling(r), 0);
   const totalExpenses = expenseRows.reduce((acc, r) => acc + recordExpense(r), 0);
   const netProfit = totalBilling - totalExpenses;
+  const totalRealBilling = realRows.reduce((acc, r) => acc + (Number(r.billingReal) || 0), 0);
+  const totalRealProfit = realRows.reduce((acc, r) => acc + (Number(r.profitReal) || 0), 0);
   const periodText =
     mode === "anio" ? `Año ${year}` : `${MONTHS[month - 1]} ${year}`;
 
   els.totalGlobal.innerHTML = `Total global (${periodText}): ${totalGlobal} sesiones<br>Facturación global: ${formatCurrency(totalBilling)}<br>Gastos: ${formatCurrency(totalExpenses)}<br>Beneficio real: ${formatCurrency(netProfit)}`;
+  els.sesionesRealBox.innerHTML =
+    realRows.length > 0
+      ? `Facturación Mensual REAL (${periodText}): ${formatCurrency(totalRealBilling)}<br>Beneficio REAL: ${formatCurrency(totalRealProfit)}`
+      : `Facturación Mensual REAL (${periodText}): Sin datos`;
 
   renderRoomBreakdown(els.sesionesFrankie, sessionRows, "Frankie");
   renderRoomBreakdown(els.sesionesMagia, sessionRows, "Magia");
@@ -928,7 +1034,7 @@ function renderComparativa() {
 }
 
 function getCompareTotals(mode, month, year, roomScope) {
-  let rows = filterByPeriod(state.records, mode, month, year);
+  let rows = filterByPeriod(state.records, mode, month, year).filter((r) => r.kind === "session");
   if (roomScope !== "Todas") {
     rows = rows.filter((r) => r.room === roomScope);
   }
@@ -1080,7 +1186,7 @@ function categoryPrice(category, isAgency) {
 }
 
 function appliedUnitPrice(record) {
-  if (record.kind === "expense") {
+  if (record.kind !== "session") {
     return 0;
   }
   const agency = toBoolFlag(record.agency);
@@ -1093,7 +1199,7 @@ function appliedUnitPrice(record) {
 }
 
 function recordBilling(record) {
-  if (record.kind === "expense") {
+  if (record.kind !== "session") {
     return 0;
   }
   const sessions = Number(record.sessions);

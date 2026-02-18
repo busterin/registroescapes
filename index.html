@@ -133,6 +133,33 @@
         </div>
 
         <div class="card">
+          <h2>Facturación Mensual REAL</h2>
+          <form id="real-form" class="grid-form">
+            <label>
+              Mes
+              <select id="real-mes" required></select>
+            </label>
+
+            <label>
+              Año
+              <select id="real-anio" required></select>
+            </label>
+
+            <label>
+              Facturación Real (€)
+              <input id="real-facturacion" type="number" min="0" step="0.01" required />
+            </label>
+
+            <label>
+              Beneficio Real (€)
+              <input id="real-beneficio" type="number" step="0.01" required />
+            </label>
+
+            <button class="btn-primary" type="submit">Confirmar facturación real</button>
+          </form>
+        </div>
+
+        <div class="card">
           <div class="card-head">
             <h2>Últimos registros</h2>
             <div class="inline-filters">
@@ -192,6 +219,7 @@
 
           <div id="total-global" class="total-box"></div>
           <p class="sesiones-note">Estos datos son ciertos pero literales. Está calculado en base a las sesiones de este mes por lo que no reflejan la facturación mensual real (ya que hay sesiones que no se han pagado este mes).</p>
+          <div id="sesiones-real-box" class="total-box"></div>
 
           <details class="accordion accordion-frankie">
             <summary>Frankie</summary>

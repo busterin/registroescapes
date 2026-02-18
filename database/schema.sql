@@ -28,6 +28,19 @@ CREATE TABLE IF NOT EXISTS gastos_registro (
   KEY idx_gastos_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS facturacion_real_mensual (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  mes TINYINT UNSIGNED NOT NULL,
+  anio SMALLINT UNSIGNED NOT NULL,
+  facturacion_real DECIMAL(10,2) NOT NULL,
+  beneficio_real DECIMAL(10,2) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_real_periodo (anio, mes),
+  KEY idx_real_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS usuarios_admin (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   username VARCHAR(60) NOT NULL,

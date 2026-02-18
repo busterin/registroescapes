@@ -43,6 +43,23 @@ CREATE TABLE IF NOT EXISTS gastos_registro (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
+Y para habilitar `Facturación Mensual REAL`, crea esta tabla:
+
+```sql
+CREATE TABLE IF NOT EXISTS facturacion_real_mensual (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  mes TINYINT UNSIGNED NOT NULL,
+  anio SMALLINT UNSIGNED NOT NULL,
+  facturacion_real DECIMAL(10,2) NOT NULL,
+  beneficio_real DECIMAL(10,2) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_real_periodo (anio, mes),
+  KEY idx_real_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
 ## API disponible
 
 - `POST /api/login.php` -> inicia sesión de acceso
