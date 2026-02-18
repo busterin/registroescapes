@@ -332,7 +332,7 @@ async function handleRegistroAction(e) {
 
   const { action, id } = button.dataset;
   if (!id) return;
-  const record = state.records.find((r) => r.id === id);
+  const record = state.records.find((r) => r.rowId === id);
   if (!record) return;
 
   if (action === "delete") {
@@ -340,9 +340,9 @@ async function handleRegistroAction(e) {
     if (!ok) return;
 
     try {
-      await apiDeleteRecord(record.kind || "session", id);
-      if (state.editingSessionId === id) resetSessionFormMode();
-      if (state.editingExpenseId === id) resetExpenseFormMode();
+      await apiDeleteRecord(record.kind || "session", record.id);
+      if (state.editingSessionId === record.id) resetSessionFormMode();
+      if (state.editingExpenseId === record.id) resetExpenseFormMode();
       await refreshRecords();
       showToast("Registro eliminado");
     } catch (error) {
@@ -357,7 +357,7 @@ async function handleRegistroAction(e) {
       els.gastoMes.value = String(record.month);
       els.gastoAnio.value = String(record.year);
       resetSessionFormMode();
-      state.editingExpenseId = id;
+      state.editingExpenseId = record.id;
       setExpenseSubmitLabel("Actualizar gasto");
       document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -373,7 +373,7 @@ async function handleRegistroAction(e) {
     els.checkAgencia.checked = record.agency === true;
 
     resetExpenseFormMode();
-    state.editingSessionId = id;
+    state.editingSessionId = record.id;
     setSessionSubmitLabel("Actualizar registro");
 
     document.getElementById("registro").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -409,8 +409,10 @@ async function refreshRecords() {
 
 function normalizeRecord(r) {
   const kind = String(r.kind ?? "session");
+  const rawId = String(r.id);
   return {
-    id: String(r.id),
+    id: rawId,
+    rowId: `${kind}:${rawId}`,
     kind,
     room: String(r.sala ?? r.room ?? ""),
     category: String(r.categoria ?? r.category ?? ""),
@@ -741,8 +743,8 @@ function renderRegistroList() {
         <td>${renderBillingCell(r)}</td>
         <td>
           <div class="row-actions">
-            <button type="button" class="btn-row" data-action="edit" data-id="${r.id}">Editar</button>
-            <button type="button" class="btn-row btn-row-danger" data-action="delete" data-id="${r.id}">Eliminar</button>
+            <button type="button" class="btn-row" data-action="edit" data-id="${r.rowId}">Editar</button>
+            <button type="button" class="btn-row btn-row-danger" data-action="delete" data-id="${r.rowId}">Eliminar</button>
           </div>
         </td>
       </tr>`
